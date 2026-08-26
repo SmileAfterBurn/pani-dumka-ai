@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "A single entry in the user's journal.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's ID." },
+        "content": { "type": "string", "description": "The content of the journal entry." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the entry was created." }
+      },
+      "required": ["uid", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}/journal/{entryId}": {
+      "schema": { "$ref": "JournalEntry" },
+      "description": "User's journal entries."
+    }
+  }
+}

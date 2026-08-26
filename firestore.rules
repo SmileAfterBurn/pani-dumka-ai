@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{uid}/journal
+    // Document ID: {entryId}
+    // Fields:
+    //   - uid: string (required, immutable) - The user's ID.
+    //   - content: string (required, max 5000 chars) - The content of the journal entry.
+    //   - createdAt: timestamp (required, immutable) - When the entry was created.
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isValidJournalEntry(data) {
+      return data.keys().hasAll(['uid', 'content', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'content', 'createdAt']) &&
+             data.uid is string &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.createdAt is timestamp;
+    }
+
+    match /users/{uid}/journal/{entryId} {
+      allow read: if isOwner(uid);
+      allow delete: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidJournalEntry(request.resource.data) && request.resource.data.uid == uid;
+      allow update: if isOwner(uid) && isValidJournalEntry(request.resource.data) && request.resource.data.uid == resource.data.uid && request.resource.data.createdAt == resource.data.createdAt;
+    }
+  }
+}

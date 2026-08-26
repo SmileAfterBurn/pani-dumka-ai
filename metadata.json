@@ -1,0 +1,12 @@
+{
+  "name": "Пані Думка",
+  "description": "Україноцентричний ШІ-оркестратор, інтелектуальний та стратегічний партнер із сучасним білим дизайном, мотивами фольклорної червоної нитки вишивки та живим 3D аватаром.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
