@@ -30,7 +30,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, onSelectA
               </div>
               <div>
                 <h3 className="font-serif font-bold text-lg text-slate-900">Довідка «Пані Думка Аі»</h3>
-                <p className="text-xs text-slate-500 font-mono">Архітектура, швидкі команди та 13 агентів</p>
+                <p className="text-xs text-slate-500 font-mono">Архітектура, швидкі команди та {AGENT_REGISTRY.length} агентів</p>
               </div>
             </div>
             <button
@@ -48,7 +48,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, onSelectA
               <h4 className="font-serif font-bold text-slate-900 text-base">Що таке «Пані Думка Аі»?</h4>
               <p className="text-sm text-slate-600 leading-relaxed">
                 «Пані Думка» — це україноцентричний інтелектуальний мультимодальний ШІ-оркестратор нового покоління. 
-                Вона поєднує шляхетну мовну культуру, тяглість української філософської традиції та оркестрацію 13 спеціалізованих агентів для розв'язання найскладніших аналітичних, інженерних, безпекових та соціальних завдань.
+                Вона поєднує шляхетну мовну культуру, тяглість української філософської традиції та оркестрацію {AGENT_REGISTRY.length} спеціалізованих агентів для розв'язання найскладніших аналітичних, інженерних, безпекових та соціальних завдань.
               </p>
             </div>
 
@@ -59,7 +59,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, onSelectA
               <div className="flex items-center justify-between">
                 <h4 className="font-serif font-bold text-slate-900 text-base flex items-center gap-2">
                   <Layers className="w-4 h-4 text-red-600" />
-                  13 Спеціалізованих Агентів (Виклик через @тег)
+                  {AGENT_REGISTRY.length} Спеціалізованих Агентів (Виклик через @тег)
                 </h4>
               </div>
               <p className="text-xs text-slate-500">
@@ -90,6 +90,17 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, onSelectA
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Developer Info */}
+            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-2">
+              <h5 className="font-serif font-bold text-indigo-900 text-sm flex items-center gap-2">
+                <Code className="w-4 h-4 text-indigo-700" />
+                Про Розробника
+              </h5>
+              <p className="text-xs text-indigo-900/80 leading-relaxed">
+                Творець та ко-фаундер екосистеми «Пані Думка» — <strong>Ілля (SmileAfterBurn)</strong>. Архітектура застосунку, емпатійний підхід та соціальна місія (інтеграція з мапою турботи) були розроблені для забезпечення максимальної допомоги та комфорту користувачів України в сучасних реаліях.
+              </p>
             </div>
 
             {/* Care Map & SmileAfterBurn */}

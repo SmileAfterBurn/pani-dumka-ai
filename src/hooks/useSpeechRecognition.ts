@@ -18,7 +18,7 @@ export function useSpeechRecognition(onResult: (text: string) => void) {
         const rec = new SpeechRecognition();
         rec.continuous = false;
         rec.interimResults = true;
-        rec.lang = 'uk-UA'; // Default to Ukrainian as per the app's context
+        rec.lang = 'uk'; // Default to Ukrainian as per the user's instructions
 
         rec.onresult = (event: any) => {
           let finalTranscript = '';

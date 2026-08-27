@@ -1,0 +1,38 @@
+{
+  "name": "Пані Думка | AI Orchestrator",
+  "short_name": "Думка",
+  "description": "Україноцентричний ШІ-оркестратор, інтелектуальний та стратегічний партнер із сучасним білим дизайном, мотивами фольклорної червоної нитки вишивки та живим 3D аватаром.",
+  "lang": "uk-UA",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#E83838",
+  "background_color": "#F2F3F4",
+  "categories": [
+    "productivity",
+    "utilities",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

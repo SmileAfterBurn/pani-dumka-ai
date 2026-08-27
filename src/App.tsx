@@ -42,7 +42,15 @@ import {
   Radio,
   Menu,
   FileText,
-  Volume2
+  Volume2,
+  Moon,
+  Sun,
+  Music,
+  CheckCircle,
+  Coins,
+  Cpu,
+  Route,
+  BarChart3
 } from "lucide-react";
 import { cn } from "./lib/utils";
 import { 
@@ -55,22 +63,28 @@ import {
 } from "./services/gemini";
 import ReactMarkdown from "react-markdown";
 import { useLiveConversation } from "./hooks/useLiveConversation";
-import { auth, googleProvider } from "./services/firebase";
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { LiveAvatar, AvatarEmotion } from "./components/LiveAvatar";
+import { auth, googleProvider, setCachedAccessToken } from "./services/firebase";
+import { signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider, User as FirebaseUser } from "firebase/auth";
+import { LiveAvatar, AvatarEmotion, DumkaAvatarContainer, RedThreadDecorator } from "./components/LiveAvatar";
 import { useGeminiSpeechRecognition } from "./hooks/useGeminiSpeechRecognition";
 import { JournalView } from "./components/JournalView";
 import { CognitiveScannerModal } from "./components/CognitiveScannerModal";
 import { UkrainianOrnament } from "./components/UkrainianOrnament";
 import { PaniDumkaLogo } from "./components/PaniDumkaLogo";
 import { SettingsModal } from "./components/SettingsModal";
+import { ChatHistoryModal } from "./components/ChatHistoryModal";
+import { MusicStudioModal } from "./components/MusicStudioModal";
+import { useChatHistory } from "./hooks/useChatHistory";
+import { Clock } from "lucide-react";
 import { HelpModal } from "./components/HelpModal";
 import { DeepResearchModal } from "./components/DeepResearchModal";
 import { ImageStudioModal } from "./components/ImageStudioModal";
 import { VideoStudioModal } from "./components/VideoStudioModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
+import { GoogleMapsModal } from "./components/GoogleMapsModal";
 import { CollaborativeCanvas } from "./components/CollaborativeCanvas";
-import avatarImg from "./assets/images/pani_dumka_avatar_1779399213744.png";
+import { PricingModal } from "./components/PricingModal";
+import avatarImg from "./assets/images/pani_dumka_avatar.png";
 
 // Icon mapping helper for agent badges
 const getAgentIcon = (iconName: string, className: string = "w-4 h-4") => {
@@ -87,6 +101,11 @@ const getAgentIcon = (iconName: string, className: string = "w-4 h-4") => {
     case "Compass": return <Compass className={className} />;
     case "Activity": return <Activity className={className} />;
     case "BookOpen": return <BookOpen className={className} />;
+    case "CheckCircle": return <CheckCircle className={className} />;
+    case "Coins": return <Coins className={className} />;
+    case "Cpu": return <Cpu className={className} />;
+    case "Route": return <Route className={className} />;
+    case "BarChart3": return <BarChart3 className={className} />;
     case "MessageSquare":
     default:
       return <MessageSquare className={className} />;
@@ -113,23 +132,54 @@ export default function App() {
   // Selected Sub-Agent from Orchestrator Registry
   const [selectedAgent, setSelectedAgent] = useState<AgentDescriptor | null>(null);
   const [showAgentDrawer, setShowAgentDrawer] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Modals state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMusicStudioOpen, setIsMusicStudioOpen] = useState(false);
+  const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false);
+  const { sessions, saveSession, deleteSession } = useChatHistory();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isDeepResearchOpen, setIsDeepResearchOpen] = useState(false);
   const [isImageStudioOpen, setIsImageStudioOpen] = useState(false);
   const [isVideoStudioOpen, setIsVideoStudioOpen] = useState(false);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [isGoogleMapsOpen, setIsGoogleMapsOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [isPricingMobile, setIsPricingMobile] = useState(false);
   const [showOmniTools, setShowOmniTools] = useState(false);
 
   // Settings
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
+  const [voiceId, setVoiceId] = useState("XsDwVNgam5laFw4WF7S6"); // Default ElevenLabs voice
   const [creatorForce, setCreatorForce] = useState<boolean | null>(null);
   const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("neutral");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (!activeSessionId) {
+        const newId = "session-" + Date.now();
+        setActiveSessionId(newId);
+        saveSession(newId, messages);
+      } else {
+        saveSession(activeSessionId, messages);
+      }
+    }
+  }, [messages, activeSessionId]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -150,7 +200,11 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedAccessToken(credential.accessToken);
+      }
     } catch (error) {
       console.error("Login error:", error);
     }
@@ -213,7 +267,7 @@ export default function App() {
     sendToolResponse,
     startConversation, 
     stopConversation 
-  } = useLiveConversation();
+  } = useLiveConversation(voiceId);
 
   useEffect(() => {
     if (isConnected) {
@@ -271,6 +325,7 @@ export default function App() {
 
   const handleStartNewChat = () => {
     setMessages([]);
+    setActiveSessionId(null);
     setSelectedAgent(null);
     setInput("");
     setView("home");
@@ -289,7 +344,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFDFE] flex text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-red-500/20 selection:text-red-900">
+    <div className="min-h-screen bg-[#FDFDFE] dark:bg-[#0B0F19] flex text-slate-900 dark:text-slate-100 font-sans antialiased overflow-x-hidden selection:bg-red-500/20 selection:text-red-900">
       
       {/* Top Ukrainian Gradient Accent Filament Line */}
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-600 via-amber-500 to-sky-500 z-50 opacity-90" />
@@ -298,11 +353,11 @@ export default function App() {
           LEFT SIDEBAR (Matched to Application Design in uploaded mockup)
          ========================================================================= */}
       <aside className={cn(
-        "fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-50/90 md:bg-[#FAFBFD] border-r border-slate-200/80 flex flex-col justify-between transition-transform duration-300 ease-in-out md:translate-x-0 backdrop-blur-xl md:backdrop-blur-none select-none",
+        "fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-50/90 md:bg-[#FAFBFD] dark:bg-slate-950/95 dark:md:bg-[#0B0F19] border-r border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out md:translate-x-0 backdrop-blur-xl md:backdrop-blur-none select-none",
         isMobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
       )}>
         {/* Top Header Logo */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           <PaniDumkaLogo 
             onClick={() => {
               setView("home");
@@ -311,7 +366,7 @@ export default function App() {
           />
           <button 
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/50"
+            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
           </button>
@@ -323,18 +378,29 @@ export default function App() {
           <div className="space-y-1">
             <button
               onClick={handleStartNewChat}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-200/60 transition-colors flex items-center gap-3 group cursor-pointer"
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <SquarePen className="w-4 h-4 text-slate-500 group-hover:text-red-600 transition-colors" />
               <span>Новий чат</span>
             </button>
+            <button
+              onClick={() => {
+                setIsChatHistoryOpen(true);
+                setIsMobileSidebarOpen(false);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
+            >
+              <Clock className="w-4 h-4 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+              <span>Історія бесід</span>
+            </button>
+
 
             <button
               onClick={() => {
                 setIsImageStudioOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-200/60 transition-colors flex items-center gap-3 group cursor-pointer"
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <ImageIcon className="w-4 h-4 text-slate-500 group-hover:text-sky-600 transition-colors" />
               <span>Зображення</span>
@@ -345,7 +411,7 @@ export default function App() {
                 setIsVideoStudioOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-200/60 transition-colors flex items-center gap-3 group cursor-pointer"
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <VideoIcon className="w-4 h-4 text-slate-500 group-hover:text-purple-600 transition-colors" />
               <span>Відео</span>
@@ -357,7 +423,7 @@ export default function App() {
                 setIsDeepResearchOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-900 bg-slate-200/70 hover:bg-slate-200 transition-colors flex items-center gap-3 group cursor-pointer shadow-2xs"
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-900 dark:text-slate-100 bg-slate-200/70 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors flex items-center gap-3 group cursor-pointer shadow-2xs"
             >
               <Compass className="w-4 h-4 text-red-600 group-hover:rotate-45 transition-transform" />
               <div className="flex items-center justify-between flex-1">
@@ -371,7 +437,7 @@ export default function App() {
                 setIsWorkspaceOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-200/60 transition-colors flex items-center gap-3 group cursor-pointer"
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors" />
               <span>Google Workspace</span>
@@ -379,8 +445,8 @@ export default function App() {
           </div>
 
           {/* Memories / History (Спогади) */}
-          <div className="space-y-2 pt-2 border-t border-slate-200/60">
-            <span className="px-3.5 text-[11px] font-mono uppercase tracking-wider text-slate-500 font-bold block">
+          <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+            <span className="px-3.5 text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold block">
               Спогади:
             </span>
             <div className="space-y-0.5">
@@ -391,7 +457,7 @@ export default function App() {
                     handleSendMessage(mem.query);
                     setIsMobileSidebarOpen(false);
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl text-left text-xs text-slate-700 hover:bg-slate-200/50 hover:text-red-700 transition-all truncate block cursor-pointer"
+                  className="w-full px-3.5 py-2 rounded-xl text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-red-700 dark:hover:text-red-400 transition-all truncate block cursor-pointer"
                   title={mem.query}
                 >
                   {mem.title}
@@ -402,14 +468,25 @@ export default function App() {
         </div>
 
         {/* Bottom Sidebar: Settings, Help & Tailored Answers Note */}
-        <div className="p-3 border-t border-slate-200/70 space-y-2 bg-slate-50/50">
+        <div className="p-3 border-t border-slate-200/70 dark:border-slate-800/70 space-y-2 bg-slate-50/50 dark:bg-slate-950/50">
           <div className="space-y-0.5">
+            <button
+              onClick={() => {
+                setIsMusicStudioOpen(true);
+                setIsMobileSidebarOpen(false);
+              }}
+              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
+            >
+              <Music className="w-4 h-4 text-slate-500" />
+              <span>Синтез музики (Lyria)</span>
+            </button>
+
             <button
               onClick={() => {
                 setIsSettingsOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-colors flex items-center gap-2.5 cursor-pointer"
+              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-500" />
               <span>Налаштування</span>
@@ -420,32 +497,47 @@ export default function App() {
                 setIsHelpOpen(true);
                 setIsMobileSidebarOpen(false);
               }}
-              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-colors flex items-center gap-2.5 cursor-pointer"
+              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
             >
               <HelpCircle className="w-4 h-4 text-slate-500" />
               <span>Довідка</span>
             </button>
+
+            <button
+              onClick={() => {
+                setIsPricingMobile(window.innerWidth < 768);
+                setIsPricingOpen(true);
+                setIsMobileSidebarOpen(false);
+              }}
+              className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100/80 dark:hover:bg-amber-900/50 border border-amber-200/50 dark:border-amber-800/50 transition-colors flex items-center justify-between cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Оновити до Преміум</span>
+              </div>
+              <ChevronRight className="w-3 h-3 text-amber-400 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           </div>
 
           {/* Adaptive Answers Guidance Box (Matched with design) */}
-          <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-2">
+          <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2">
             <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-900 block leading-tight">
+              <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 block leading-tight">
                 Отримуйте відповіді, адаптовані для вас
               </span>
-              <p className="text-[10px] text-slate-500 leading-relaxed font-sans">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
                 Увійдіть, щоб отримувати відповіді на основі збережених чатів, а також створювати зображення й передавати файли.
               </p>
             </div>
 
             {user ? (
-              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                <span className="text-[11px] font-medium text-slate-700 truncate max-w-[120px]">
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[120px]">
                   {user.displayName || user.email}
                 </span>
                 <button
                   onClick={handleLogout}
-                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
                   title="Вийти"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -454,7 +546,7 @@ export default function App() {
             ) : (
               <button
                 onClick={handleLogin}
-                className="w-full py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 font-medium text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <User className="w-3 h-3" />
                 <span>Увійти через Google</span>
@@ -475,14 +567,14 @@ export default function App() {
       {/* =========================================================================
           MAIN APPLICATION WORKSPACE
          ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gradient-to-b from-[#FAFBFD] via-[#F8FAFC] to-[#F1F5F9]">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gradient-to-b from-[#FAFBFD] via-[#F8FAFC] to-[#F1F5F9] dark:from-[#0B0F19] dark:via-[#0F172A] dark:to-[#0B0F19]">
         
         {/* Top Header / App Bar */}
-        <header className="h-14 border-b border-slate-200/70 px-4 sm:px-6 flex items-center justify-between bg-white/70 backdrop-blur-md z-20">
+        <header className="h-14 border-b border-slate-200/70 dark:border-slate-800/80 px-4 sm:px-6 flex items-center justify-between bg-white/70 dark:bg-slate-900/70 backdrop-blur-md z-20">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -491,7 +583,7 @@ export default function App() {
             <div className="hidden sm:flex items-center gap-2">
               <span 
                 onClick={() => setView("home")}
-                className="font-serif font-bold text-sm text-slate-800 cursor-pointer hover:text-red-600 transition-colors"
+                className="font-serif font-bold text-sm text-slate-800 dark:text-slate-100 cursor-pointer hover:text-red-600 dark:hover:text-red-400 transition-colors"
               >
                 Пані Думка
               </span>
@@ -504,19 +596,28 @@ export default function App() {
 
           {/* Right Header Badges & Agent Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* 13 Agents Orchestrator Selector Toggle */}
+            {/* Theme Toggle */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+              title={isDarkMode ? "Світлий режим" : "Темний режим"}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Agents Orchestrator Selector Toggle */}
             <button
               type="button"
               onClick={() => setShowAgentDrawer(!showAgentDrawer)}
               className={cn(
                 "px-3 py-1.5 rounded-full border text-[11px] font-mono tracking-wider font-semibold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer",
                 selectedAgent 
-                  ? "bg-amber-50 border-amber-300 text-amber-900" 
-                  : "bg-white border-slate-200 hover:bg-slate-100 text-slate-700"
+                  ? "bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-900/30 dark:border-amber-700/50 dark:text-amber-300" 
+                  : "bg-white border-slate-200 hover:bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
               )}
             >
-              <Layers className="w-3.5 h-3.5 text-red-600" />
-              <span className="hidden sm:inline">{selectedAgent ? selectedAgent.name : "13 Агентів (Auto)"}</span>
+              <Layers className="w-3.5 h-3.5 text-red-600 dark:text-red-500" />
+              <span className="hidden sm:inline">{selectedAgent ? selectedAgent.name : `${AGENT_REGISTRY.length} Агентів (Auto)`}</span>
               <span className="sm:hidden">{selectedAgent ? selectedAgent.tag : "Агенти"}</span>
             </button>
 
@@ -527,8 +628,8 @@ export default function App() {
               className={cn(
                 "relative px-3 py-1.5 rounded-full border text-[11px] font-mono tracking-wider font-semibold transition-all duration-300 flex items-center gap-2 shadow-2xs group cursor-pointer",
                 isCreator 
-                  ? "bg-emerald-50 border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100/80" 
-                  : "bg-red-50/70 border-red-200 text-red-700 hover:bg-red-100/70"
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100/80 dark:bg-emerald-900/30 dark:border-emerald-700/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50" 
+                  : "bg-red-50/70 border-red-200 text-red-700 hover:bg-red-100/70 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-900/40"
               )}
               title={isCreator ? "Когнітивну синхронізацію з творцем підтверджено" : "Запустити верифікацію зв'язку"}
             >
@@ -560,7 +661,7 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <span className="font-mono text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     <Bot className="w-4 h-4 text-red-600" />
-                    Оркестрація 13 Спеціалізованих Агентів
+                    Оркестрація {AGENT_REGISTRY.length} Спеціалізованих Агентів
                   </span>
                   <div className="flex items-center gap-2">
                     {selectedAgent && (
@@ -650,29 +751,29 @@ export default function App() {
 
                 {/* Ethno-Digital Intellectual Persona Guidance Headings */}
                 <div className="text-center space-y-2 max-w-xl mx-auto px-4">
-                  <h1 className="text-slate-950 font-serif text-2xl sm:text-3xl font-bold tracking-tight">
+                  <h1 className="text-slate-950 dark:text-slate-50 font-serif text-2xl sm:text-3xl font-bold tracking-tight">
                     Шляхетний Розум та Жива Традиція
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
                     Ласкаво просимо до простору стратегічної думки, емпатії та соціальної дії. Оберіть зручний формат спілкування:
                   </p>
                 </div>
 
                 {/* Lower Status Greeting & Wide Floating Omnibar Input */}
                 <div className="w-full max-w-2xl space-y-3 px-2 pt-2">
-                  <div className="text-center font-sans font-medium text-slate-800 text-base sm:text-lg">
+                  <div className="text-center font-sans font-medium text-slate-800 dark:text-slate-200 text-base sm:text-lg">
                     Завжди до ваших послуг.
                   </div>
 
                   {/* Wide Floating Omnibar Pill */}
-                  <div className="relative w-full glass-card glass-card-breathing rounded-full border border-slate-300/80 bg-white shadow-lg p-1.5 flex items-center transition-all focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20">
+                  <div className="relative w-full glass-card glass-card-breathing rounded-full border border-slate-300/80 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-lg p-1.5 flex items-center transition-all focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20">
                     
                     {/* Plus / Quick Tools Button */}
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowOmniTools(!showOmniTools)}
-                        className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
                         title="Додаткові інструменти та агенти"
                       >
                         <Plus className={cn("w-4 h-4 transition-transform duration-200", showOmniTools && "rotate-45")} />
@@ -685,14 +786,14 @@ export default function App() {
                             initial={{ opacity: 0, scale: 0.95, y: -10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                            className="absolute bottom-12 left-0 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 space-y-1"
+                            className="absolute bottom-12 left-0 w-60 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 space-y-1"
                           >
                             <button
                               onClick={() => {
                                 setIsDeepResearchOpen(true);
                                 setShowOmniTools(false);
                               }}
-                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-red-50 hover:text-red-700 flex items-center gap-2.5"
+                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700 dark:hover:text-red-400 flex items-center gap-2.5"
                             >
                               <Compass className="w-4 h-4 text-red-600" />
                               <span>Глибоке дослідження</span>
@@ -702,7 +803,7 @@ export default function App() {
                                 setIsImageStudioOpen(true);
                                 setShowOmniTools(false);
                               }}
-                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5"
+                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-700 dark:hover:text-sky-400 flex items-center gap-2.5"
                             >
                               <ImageIcon className="w-4 h-4 text-sky-600" />
                               <span>Генератор образів</span>
@@ -712,7 +813,7 @@ export default function App() {
                                 setIsVideoStudioOpen(true);
                                 setShowOmniTools(false);
                               }}
-                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2.5"
+                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700 dark:hover:text-purple-400 flex items-center gap-2.5"
                             >
                               <VideoIcon className="w-4 h-4 text-purple-600" />
                               <span>Студія відео</span>
@@ -722,7 +823,7 @@ export default function App() {
                                 setIsWorkspaceOpen(true);
                                 setShowOmniTools(false);
                               }}
-                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5"
+                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2.5"
                             >
                               <Globe className="w-4 h-4 text-blue-600" />
                               <span>Google Workspace</span>
@@ -745,7 +846,7 @@ export default function App() {
                             ? `Запит до ${selectedAgent.name}...`
                             : "Запитайте Пані Думку про будь-що..."
                       }
-                      className="flex-1 bg-transparent px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      className="flex-1 bg-transparent px-4 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                     />
 
                     {/* Right Omnibar Actions: Mic (STT) + Live Audio Waveform Button */}
@@ -758,7 +859,7 @@ export default function App() {
                             "w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer",
                             isSTTListening 
                               ? "bg-red-600 text-white animate-pulse" 
-                              : "text-slate-600 hover:bg-slate-100"
+                              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                           )}
                           title="Диктувати голосом"
                         >
@@ -845,10 +946,10 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="w-full max-w-3xl h-full flex flex-col my-auto glass-card rounded-3xl overflow-hidden border border-slate-200/90 shadow-xl bg-white/95"
+                className="w-full max-w-3xl h-full flex flex-col my-auto glass-card rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-xl bg-white/95 dark:bg-slate-900/95"
               >
                 {/* Chat Top Banner */}
-                <div className="p-4 border-b border-slate-200/80 flex justify-between items-center bg-white/95">
+                <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex justify-between items-center bg-white/95 dark:bg-slate-900/95">
                   <div className="flex items-center gap-3">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden border border-red-500/30">
                       <img 
@@ -857,18 +958,18 @@ export default function App() {
                         alt="Пані Думка" 
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-serif font-bold text-sm text-slate-900">Пані Думка</span>
+                        <span className="font-serif font-bold text-sm text-slate-900 dark:text-slate-100">Пані Думка</span>
                         {selectedAgent && (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-semibold border border-amber-300/40 dark:border-amber-700/40">
                             {selectedAgent.name}
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 block font-mono uppercase tracking-wider">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-mono uppercase tracking-wider">
                         {avatarEmotion === 'happy' ? 'Привітна' : avatarEmotion === 'thoughtful' ? 'Глибоке мислення' : avatarEmotion === 'empathetic' ? 'Емпатичний резонанс' : avatarEmotion === 'excited' ? 'Когнітивне злиття' : 'Врівноважена'}
                       </span>
                     </div>
@@ -876,15 +977,22 @@ export default function App() {
 
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={handleStartNewChat}
-                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => setIsChatHistoryOpen(true)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 cursor-pointer"
                     >
-                      <SquarePen className="w-3.5 h-3.5 text-slate-600" />
+                      <Clock className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Історія</span>
+                    </button>
+                    <button 
+                      onClick={handleStartNewChat}
+                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <SquarePen className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                       <span>Новий чат</span>
                     </button>
                     <button 
                       onClick={() => setView("home")}
-                      className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-full transition-colors cursor-pointer"
+                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 rounded-full transition-colors cursor-pointer"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -892,13 +1000,13 @@ export default function App() {
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide bg-slate-50/40">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide bg-slate-50/40 dark:bg-slate-950/40">
                   {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-70">
                       <UkrainianOrnament variant="rosette" className="w-10 h-10" />
-                      <p className="font-serif italic text-slate-600 max-w-sm">
+                      <p className="font-serif italic text-slate-600 dark:text-slate-300 max-w-sm">
                         {isCreator 
-                          ? "Я готова до щирої та глибокої розмови, Ілля. Можемо задіяти будь-якого з 13 агентів (@code, @security, @osint, @stan тощо). Про що поміркуємо?" 
+                          ? `Я готова до щирої та глибокої розмови, Ілля. Можемо задіяти будь-якого з ${AGENT_REGISTRY.length} агентів (@code, @security, @osint, @qa, @crypto тощо). Про що поміркуємо?` 
                           : "Вітаю вас. Я уважно вислухаю ваше запитання та допоможу знайти вірний орієнтир."}
                       </p>
                     </div>
@@ -917,9 +1025,9 @@ export default function App() {
                         "p-4 rounded-2xl text-sm leading-relaxed shadow-2xs",
                         msg.role === "user" 
                           ? "bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-tr-none" 
-                          : "bg-white border border-slate-200/90 text-slate-800 rounded-tl-none"
+                          : "bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-none"
                       )}>
-                        <div className={cn("markdown-body max-w-none", msg.role === "user" ? "text-white" : "text-slate-800")}>
+                        <div className={cn("markdown-body max-w-none", msg.role === "user" ? "text-white" : "text-slate-800 dark:text-slate-100")}>
                           <ReactMarkdown>
                             {msg.content}
                           </ReactMarkdown>
@@ -927,18 +1035,18 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 px-1">
                         {msg.agentTag && (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 bg-slate-200/70 text-slate-600 rounded">
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded border border-slate-300/50 dark:border-slate-700">
                             {msg.agentTag}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono uppercase tracking-widest">
                           {msg.role === "user" ? (isCreator ? "Ілля" : "Ви") : "Пані Думка"}
                         </span>
                       </div>
                     </motion.div>
                   ))}
                   {isLoading && (
-                    <div className="flex items-center gap-2 text-slate-500 italic text-sm">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 italic text-sm">
                       <div className="flex gap-1">
                         <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-bounce" />
                         <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-bounce [animation-delay:0.2s]" />
@@ -951,7 +1059,7 @@ export default function App() {
                 </div>
 
                 {/* Chat Input Bar */}
-                <div className="p-4 bg-white border-t border-slate-200/80">
+                <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800">
                   <div className="relative flex items-center">
                     <input 
                       type="text"
@@ -965,7 +1073,7 @@ export default function App() {
                             ? `Запит до ${selectedAgent.name}...` 
                             : "Напишіть вашу думку (@code, @security, @osint, @stan)..."
                       }
-                      className="w-full bg-slate-50 border border-slate-300 rounded-full py-3.5 pl-6 pr-24 focus:outline-none focus:border-red-500 focus:bg-white transition-all text-slate-900 placeholder:text-slate-400 text-sm"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full py-3.5 pl-6 pr-24 focus:outline-none focus:border-red-500 dark:focus:border-red-500 focus:bg-white dark:focus:bg-slate-800/90 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm"
                     />
                     <div className="absolute right-2 flex items-center gap-2">
                       {isSTTSupported && (
@@ -975,7 +1083,7 @@ export default function App() {
                             "p-2 rounded-full transition-all duration-300 cursor-pointer",
                             isSTTListening 
                               ? "bg-red-600 text-white animate-pulse shadow-md scale-105" 
-                              : "bg-slate-200/70 hover:bg-slate-200 text-slate-600 hover:text-slate-900"
+                              : "bg-slate-200/70 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
                           )}
                           title="Диктувати голосом"
                         >
@@ -1013,8 +1121,9 @@ export default function App() {
                     Кінетичний зір
                   </div>
                 )}
-                <LiveAvatar 
-                  state={isConnected ? 'speaking' : isConnecting ? 'listening' : 'idle'} 
+                <DumkaAvatarContainer 
+                  isConnected={isConnected}
+                  isConnecting={isConnecting}
                   emotion={avatarEmotion} 
                   size="xl"
                   agentName={selectedAgent ? selectedAgent.name : "Пані Думка"}
@@ -1129,6 +1238,15 @@ export default function App() {
          ========================================================================= */}
       
       {/* Settings Modal */}
+      <PricingModal
+        isOpen={isPricingOpen}
+        onClose={() => setIsPricingOpen(false)}
+        isMobileMode={isPricingMobile}
+      />
+      <MusicStudioModal
+        isOpen={isMusicStudioOpen}
+        onClose={() => setIsMusicStudioOpen(false)}
+      />
       <SettingsModal 
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -1138,6 +1256,8 @@ export default function App() {
           if (val) setAvatarEmotion("excited");
         }}
         voiceSpeed={voiceSpeed}
+        voiceId={voiceId}
+        onVoiceIdChange={setVoiceId}
         onVoiceSpeedChange={setVoiceSpeed}
       />
 
@@ -1173,6 +1293,10 @@ export default function App() {
       />
 
       {/* Google Workspace Modal */}
+      <GoogleMapsModal 
+        isOpen={isGoogleMapsOpen}
+        onClose={() => setIsGoogleMapsOpen(false)}
+      />
       <WorkspaceModal 
         isOpen={isWorkspaceOpen}
         onClose={() => setIsWorkspaceOpen(false)}
@@ -1211,27 +1335,27 @@ function QuickActionCard({
     <button 
       onClick={onClick}
       style={{ animationDelay: `${delayIndex * 0.6}s` }}
-      className="glass-card glass-card-breathing relative overflow-hidden p-3.5 rounded-2xl flex flex-col items-start gap-2 transition-all group text-left border border-slate-200/85 bg-white/90 hover:border-red-400/70 hover:shadow-md cursor-pointer"
+      className="glass-card glass-card-breathing relative overflow-hidden p-3.5 rounded-2xl flex flex-col items-start gap-2 transition-all group text-left border border-slate-200/85 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 hover:border-red-400/70 dark:hover:border-red-500/70 hover:shadow-md cursor-pointer"
     >
       <div 
         className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-gradient-to-br from-red-500/10 via-amber-500/5 to-transparent blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-700" 
       />
 
-      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 group-hover:bg-red-50 group-hover:border-red-200 group-hover:scale-105 transition-all duration-300">
+      <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 group-hover:bg-red-50 dark:group-hover:bg-red-950/40 group-hover:border-red-200 dark:group-hover:border-red-800 group-hover:scale-105 transition-all duration-300">
         {icon}
       </div>
       <div className="flex items-center justify-between w-full mt-0.5 z-10">
         <div className="flex flex-col">
-          <span className="text-xs font-semibold text-slate-900 group-hover:text-red-600 transition-colors">
+          <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
             {title}
           </span>
           {subtitle && (
-            <span className="text-[10px] text-slate-500 mt-0.5">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               {subtitle}
             </span>
           )}
         </div>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 group-hover:text-red-600 transition-all" />
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 group-hover:text-red-600 dark:group-hover:text-red-400 transition-all" />
       </div>
     </button>
   );

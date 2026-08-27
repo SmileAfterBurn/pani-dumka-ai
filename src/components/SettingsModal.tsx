@@ -2,6 +2,7 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, UserCheck, Volume2, Shield, Sparkles, RefreshCw, Cpu } from "lucide-react";
 import { UkrainianOrnament } from "./UkrainianOrnament";
+import { AGENT_REGISTRY } from "../services/gemini";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface SettingsModalProps {
   onToggleCreator: (val: boolean) => void;
   voiceSpeed: number;
   onVoiceSpeedChange: (speed: number) => void;
+  voiceId: string;
+  onVoiceIdChange: (id: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -19,6 +22,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleCreator,
   voiceSpeed,
   onVoiceSpeedChange,
+  voiceId,
+  onVoiceIdChange,
 }) => {
   if (!isOpen) return null;
 
@@ -77,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-slate-600 leading-tight">
-                    Повна синхронізація, 13 агентів, контекст SmileAfterBurn та Мапи Турботи.
+                    Повна синхронізація, {AGENT_REGISTRY.length} агентів, контекст SmileAfterBurn та Мапи Турботи.
                   </p>
                 </button>
 
@@ -131,6 +136,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
+            
+            {/* Voice Selection */}
+            <div className="space-y-3 pt-4 border-t border-slate-100">
+              <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold flex items-center gap-1.5">
+                <Volume2 className="w-4 h-4 text-slate-400" />
+                Голос AI (ElevenLabs)
+              </span>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <select
+                  value={voiceId}
+                  onChange={(e) => onVoiceIdChange(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all cursor-pointer"
+                >
+                  <option value="XsDwVNgam5laFw4WF7S6">Pani Dumka (Дарина) - Основний</option>
+                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Рейчел)</option>
+                  <option value="29vD33N1CtxCmqQRPOZB">Drew (Дрю)</option>
+                  <option value="2EiwWnXFnvU5JabPnv8n">Clyde (Клайд)</option>
+                  <option value="5Q0t7uMcjvnagumLfvZi">Paul (Пол)</option>
+                  <option value="AZnzlk1XvdvUeBnXmlld">Domi (Домі)</option>
+                  <option value="CYw3kZ02Hs0563khs1Fj">Dave (Дейв)</option>
+                  <option value="EXAVITQu4vr4xnSDxMaL">Bella (Белла)</option>
+                  <option value="ThT5KcBeYPX3keUQqHPh">Dorothy (Дороті)</option>
+                </select>
+                <p className="text-[10px] text-slate-500 mt-2">
+                  Змінивши голос, вам може знадобитись перезапустити голосову сесію.
+                </p>
+              </div>
+            </div>
+
             {/* Model details */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
@@ -139,7 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-slate-600 font-medium">Екосистема агентів</span>
-                <span className="text-xs font-mono font-bold text-slate-800">13 суб-агентів</span>
+                <span className="text-xs font-mono font-bold text-slate-800">{AGENT_REGISTRY.length} суб-агентів</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-slate-600 font-medium">База осередків Турботи</span>

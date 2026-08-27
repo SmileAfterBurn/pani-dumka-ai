@@ -1,7 +1,9 @@
+// Живий аватар Пані Думки з 3D-паралаксом, природною мімікою та сяйвом
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import avatarImg from '../assets/images/pani_dumka_avatar_1779399213744.png';
+import avatarImg from '../assets/images/pani_dumka_avatar.png';
 import { Sparkles, Mic, Volume2 } from 'lucide-react';
 
 export type AvatarEmotion = 'neutral' | 'happy' | 'thoughtful' | 'empathetic' | 'excited';
@@ -14,7 +16,7 @@ interface LiveAvatarProps {
   agentName?: string;
 }
 
-// Particle floating from the glowing crown
+// Частинки світла, що здіймаються від вінка Пані Думки
 interface CrownParticle {
   id: number;
   x: number;
@@ -38,30 +40,31 @@ export function LiveAvatar({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasParticlesRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Mouse & Parallax tracking
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // Відстеження руху миші та глибини паралаксу
   const [isHovered, setIsHovered] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
   const [speechAmplitude, setSpeechAmplitude] = useState(0);
 
-  // Smooth interpolated head tilt angles
+  // Плавні інтерпольовані кути нахилу голови
   const currentTilt = useRef({ x: 0, y: 0 });
   const targetTilt = useRef({ x: 0, y: 0 });
+  const idleLookRef = useRef({ x: 0, y: 0 });
+  const isHoveredRef = useRef(false);
   const animFrameId = useRef<number | null>(null);
 
-  // Handle natural blinking cycles
+  // Природний біоритм кліпання очей
   useEffect(() => {
     let blinkTimeout: NodeJS.Timeout;
     let shutTimeout: NodeJS.Timeout;
 
     const scheduleBlink = () => {
-      const interval = 2800 + Math.random() * 4200;
+      const interval = 3000 + Math.random() * 4000;
       blinkTimeout = setTimeout(() => {
         setIsBlinking(true);
-        // Realistic blink duration (140-180ms)
+        // Реалістична тривалість кліпання (140-180 мс)
         shutTimeout = setTimeout(() => {
           setIsBlinking(false);
-          // Occasional realistic double-blink
+          // Періодичне подвійне кліпання
           if (Math.random() < 0.25) {
             setTimeout(() => {
               setIsBlinking(true);
@@ -80,7 +83,7 @@ export function LiveAvatar({
     };
   }, []);
 
-  // Speech mouth & chest pulsation simulator
+  // Симуляція артикуляції та пульсації голосу
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (state === 'speaking') {
@@ -93,32 +96,81 @@ export function LiveAvatar({
     return () => clearInterval(interval);
   }, [state]);
 
-  // Handle smooth mouse tracking for parallax
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
-    const y = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
-    targetTilt.current = {
-      x: Math.max(-1, Math.min(1, x)),
-      y: Math.max(-1, Math.min(1, y))
+  // Сакадичні мікрорухи погляду в режимі очікування
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    const scheduleIdleLook = () => {
+      const interval = 2000 + Math.random() * 4000;
+      timeout = setTimeout(() => {
+        if (state === 'idle' && !isHoveredRef.current) {
+          if (Math.random() > 0.4) {
+            idleLookRef.current = {
+              x: (Math.random() - 0.5) * 0.5,
+              y: (Math.random() - 0.5) * 0.5
+            };
+          } else {
+            idleLookRef.current = { x: 0, y: 0 };
+          }
+        }
+        scheduleIdleLook();
+      }, interval);
     };
-    setMousePos({ x, y });
-  };
 
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    targetTilt.current = { x: 0, y: 0 };
-    setMousePos({ x: 0, y: 0 });
-  };
+    scheduleIdleLook();
+    return () => clearTimeout(timeout);
+  }, [state]);
 
-  // Continuous animation loop for physics, crown sparks, and idle micro-saccades
+  // Відстеження курсора для ефекту інтерактивного погляду та нахилу
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const diffX = e.clientX - centerX;
+      const diffY = e.clientY - centerY;
+      
+      // Чутливість: радіус у пікселях для максимального нахилу
+      const sensitivity = window.innerWidth / 2.5; 
+      const x = Math.max(-1, Math.min(1, diffX / sensitivity));
+      const y = Math.max(-1, Math.min(1, diffY / sensitivity));
+      
+      targetTilt.current = { x, y };
+      isHoveredRef.current = true;
+      
+      // Повернення в спокійний стан при виході за межі вікна
+      if (
+        e.clientX <= 10 || e.clientY <= 10 || 
+        e.clientX >= window.innerWidth - 10 || e.clientY >= window.innerHeight - 10
+      ) {
+        isHoveredRef.current = false;
+        targetTilt.current = { x: 0, y: 0 };
+      }
+    };
+
+    const handleGlobalMouseLeave = () => {
+      isHoveredRef.current = false;
+      targetTilt.current = { x: 0, y: 0 };
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseleave', handleGlobalMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseleave', handleGlobalMouseLeave);
+    };
+  }, []);
+
+  // Безперервний цикл анімації часток вінка, дихання та мікросакад
   useEffect(() => {
     const canvas = canvasParticlesRef.current;
     const ctx = canvas?.getContext('2d');
     let particles: CrownParticle[] = [];
 
-    // Initialize 24 crown aura sparks
+    // Ініціалізація 28 часток теплого сяйва вінка
     const crownColors = ['#FDE047', '#F59E0B', '#DC2626', '#FEF08A', '#38BDF8'];
     for (let i = 0; i < 28; i++) {
       particles.push({
@@ -139,16 +191,20 @@ export function LiveAvatar({
     const render = () => {
       t += 0.03;
 
-      // Natural idle micro-breathing & attention head swaying
+      // Природне мікродихання та легке погойдування
       const idleSwayX = Math.sin(t * 0.6) * 0.15;
       const idleSwayY = Math.cos(t * 0.9) * 0.12;
 
-      // Smooth interpolation towards target tilt
-      const lerp = 0.08;
-      currentTilt.current.x += (targetTilt.current.x + idleSwayX - currentTilt.current.x) * lerp;
-      currentTilt.current.y += (targetTilt.current.y + idleSwayY - currentTilt.current.y) * lerp;
+      // Визначення активної цілі погляду
+      const targetX = isHoveredRef.current ? targetTilt.current.x : idleLookRef.current.x;
+      const targetY = isHoveredRef.current ? targetTilt.current.y : idleLookRef.current.y;
 
-      // Render crown particles on overlay canvas
+      // Плавна інтерполяція положення
+      const lerp = 0.08;
+      currentTilt.current.x += (targetX + idleSwayX - currentTilt.current.x) * lerp;
+      currentTilt.current.y += (targetY + idleSwayY - currentTilt.current.y) * lerp;
+
+      // Рендеринг часток сяйва на канвасі
       if (ctx && canvas) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -172,7 +228,7 @@ export function LiveAvatar({
           ctx.fill();
           ctx.restore();
 
-          // Reset particle at top wreath base
+          // Оновлення частки біля основи вінка
           if (p.life >= p.maxLife || p.y < 0) {
             p.life = 0;
             p.x = 40 + Math.random() * 200;
@@ -191,7 +247,7 @@ export function LiveAvatar({
     };
   }, []);
 
-  // Compute emotion specific colors and styles
+  // Конфігурація візуальних ефектів відповідно до емоційного стану
   const emotionConfig = useMemo(() => {
     switch (emotion) {
       case 'happy':
@@ -255,18 +311,17 @@ export function LiveAvatar({
     xl: 'w-72 h-72 sm:w-80 sm:h-80',
   }[size];
 
-  // Derive 3D transforms for parallax
-  const tiltX = -currentTilt.current.y * 9; // up/down pitch
-  const tiltY = currentTilt.current.x * 12; // left/right yaw
+  // Розрахунок 3D-перетворень для паралаксу
+  const tiltX = -currentTilt.current.y * 9; // нахил угору / вниз
+  const tiltY = currentTilt.current.x * 12; // поворот ліворуч / праворуч
   const eyeShiftX = currentTilt.current.x * 4;
   const eyeShiftY = currentTilt.current.y * 3;
 
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => setIsHovered(false)}
       className={cn(
         "relative flex flex-col items-center justify-center select-none cursor-pointer group",
         sizeClasses,
@@ -274,7 +329,7 @@ export function LiveAvatar({
       )}
       style={{ perspective: 1200 }}
     >
-      {/* Dynamic Status Badge (Pani Dumka status) */}
+      {/* Динамічний статусний бейдж стану Пані Думки */}
       <div 
         className={cn(
           "absolute -top-11 z-40 px-3.5 py-1.5 bg-white/95 border border-slate-200/90 backdrop-blur-md rounded-full text-[11px] tracking-wider font-mono text-slate-700 flex items-center gap-2 shadow-md transition-all duration-300 group-hover:scale-105 pointer-events-none"
@@ -290,21 +345,27 @@ export function LiveAvatar({
         </span>
       </div>
 
-      {/* Outer Gyroscope Rings (Ukrainian Red and Gold Thread Filaments) */}
+      {/* Зовнішні орбіти-гіроскопи (традиційна нитка автентичної палітри) */}
       <div className="absolute -inset-4 rounded-full border border-red-500/15 animate-[spin_24s_linear_infinite] pointer-events-none" />
       <div className="absolute -inset-8 rounded-full border border-amber-500/15 animate-[spin_32s_linear_infinite_reverse] pointer-events-none" />
-
-      {/* Atmospheric Emotional Aura Bloom */}
-      <div
-        className="absolute -inset-6 rounded-full blur-2xl transition-all duration-700 pointer-events-none"
-        style={{
+      
+      {/* Атмосферна аура емоційного стану */}
+      <motion.div
+        className="absolute -inset-8 rounded-full blur-2xl pointer-events-none"
+        animate={{
           backgroundColor: emotionConfig.glowColor,
-          opacity: state === 'speaking' ? 0.8 : 0.45,
-          transform: `scale(${state === 'speaking' ? 1.1 + speechAmplitude * 0.15 : 1})`
+          opacity: state === 'speaking' ? [0.6, 0.85, 0.6] : [0.35, 0.6, 0.35],
+          scale: state === 'speaking' ? [1.0, 1.1 + speechAmplitude * 0.15, 1.0] : [0.95, 1.05, 0.95],
+        }}
+        transition={{
+          duration: state === 'speaking' ? 1.2 : 3.5,
+          repeat: Infinity,
+          ease: "easeInOut",
+          backgroundColor: { duration: 1.5, ease: "easeInOut" }
         }}
       />
 
-      {/* Speaking Soundwave Ripple Rings */}
+      {/* Хвильові кола звуку під час мовлення */}
       <AnimatePresence>
         {state === 'speaking' && (
           <>
@@ -326,7 +387,7 @@ export function LiveAvatar({
         )}
       </AnimatePresence>
 
-      {/* Listening Glow Pulsation */}
+      {/* Пульсація готовності слухати */}
       {state === 'listening' && (
         <motion.div
           animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.7, 0.3] }}
@@ -335,7 +396,7 @@ export function LiveAvatar({
         />
       )}
 
-      {/* Main Living Portrait Frame */}
+      {/* Головна рама живого портрета */}
       <div 
         className={cn(
           "relative w-full h-full rounded-full overflow-hidden border-2 border-red-500/30 shadow-[0_12px_40px_rgba(220,38,38,0.15)] bg-slate-950 z-20 transition-transform duration-100 ease-out"
@@ -345,7 +406,7 @@ export function LiveAvatar({
           transformStyle: 'preserve-3d',
         }}
       >
-        {/* Layer 1: Background Atmospheric Depth & Bokeh */}
+        {/* Шар 1: Фонова атмосферна глибина */}
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-150 ease-out"
           style={{
@@ -355,7 +416,7 @@ export function LiveAvatar({
           }}
         />
 
-        {/* Layer 2: Main Portrait of Pani Dumka with Organic Breathing & Tilt */}
+        {/* Шар 2: Головний портрет Пані Думки з природним диханням */}
         <motion.div
           animate={{
             scale: state === 'speaking' ? [1.01, 1.025, 1.01] : [1, 1.018, 1],
@@ -382,14 +443,13 @@ export function LiveAvatar({
             }}
           />
 
-          {/* Layer 3: Dynamic Living Glowing Crown of Ukrainian Wheat & Floral Leaves */}
+          {/* Шар 3: Сяючий вінок із пшеницею та квітами */}
           <div 
             className="absolute top-0 left-0 right-0 h-1/2 pointer-events-none mix-blend-screen overflow-hidden"
             style={{
               transform: `translate(${eyeShiftX * 0.8}px, ${eyeShiftY * 0.6}px)`,
             }}
           >
-            {/* Luminous Crown Crest Highlight */}
             <motion.div 
               animate={{ 
                 opacity: state === 'speaking' ? [0.6, 0.95, 0.6] : [0.45, 0.75, 0.45],
@@ -399,13 +459,12 @@ export function LiveAvatar({
               className="absolute top-1 left-1/2 -translate-x-1/2 w-48 h-24 bg-radial from-amber-300/60 via-amber-500/20 to-transparent blur-md rounded-full"
             />
             
-            {/* Pulsing Florets Glow points aligned with her wreath */}
             <div className="absolute top-3 left-[28%] w-6 h-6 rounded-full bg-amber-300/70 blur-xs animate-pulse" />
             <div className="absolute top-1 left-[48%] w-8 h-8 rounded-full bg-yellow-200/80 blur-xs animate-[pulse_2s_infinite]" />
             <div className="absolute top-3 right-[28%] w-6 h-6 rounded-full bg-amber-300/70 blur-xs animate-pulse" />
           </div>
 
-          {/* Layer 4: Canvas with Drifting Celestial Sparks */}
+          {/* Шар 4: Канвас з мікроіскрами сяйва */}
           <canvas
             ref={canvasParticlesRef}
             width={280}
@@ -413,22 +472,22 @@ export function LiveAvatar({
             className="absolute inset-0 w-full h-full pointer-events-none z-20"
           />
 
-          {/* Layer 5: Luminous Living Blue Eyes & Reflection tracking */}
+          {/* Шар 5: Світлі живі очі з трекінгом відблисків */}
           <div 
             className="absolute top-[37%] left-1/2 -translate-x-1/2 w-[44%] h-[12%] pointer-events-none flex justify-between px-2 z-30"
             style={{
               transform: `translate(calc(-50% + ${eyeShiftX}px), ${eyeShiftY}px)`,
             }}
           >
-            {/* Left Eye Luminous Glint */}
-            <div className="relative w-7 h-5 flex items-center justify-center">
+            {/* Ліве око */}
+            <div className="relative w-8 h-5 flex items-center justify-center overflow-hidden rounded-full">
               <AnimatePresence>
                 {!isBlinking && (
                   <motion.div
-                    initial={{ scaleY: 0, opacity: 0 }}
-                    animate={{ scaleY: 1, opacity: 1 }}
-                    exit={{ scaleY: 0, opacity: 0 }}
-                    transition={{ duration: 0.1 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.05 }}
                     className="absolute inset-0 flex items-center justify-center"
                   >
                     <motion.div
@@ -436,7 +495,7 @@ export function LiveAvatar({
                         opacity: [0.6, 0.9, 0.6],
                         scale: [1, 1.15, 1],
                       }}
-                      transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
+                      transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut", delay: 0 }}
                       className="w-3.5 h-3.5 rounded-full bg-cyan-300/40 blur-[1.5px] shadow-[0_0_6px_#38bdf8]"
                       style={{
                         transform: `translate(${eyeShiftX * 0.7}px, ${eyeShiftY * 0.7}px)`,
@@ -451,17 +510,25 @@ export function LiveAvatar({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
 
-            {/* Right Eye Luminous Glint */}
-            <div className="relative w-7 h-5 flex items-center justify-center">
+              {/* Повіка для кліпання */}
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: isBlinking ? '100%' : '0%' }}
+                transition={{ duration: 0.1, ease: "easeInOut" }}
+                className="absolute top-0 left-0 w-full bg-[#d6a98b]/90 backdrop-blur-sm z-10"
+                style={{ originY: 0, borderBottom: isBlinking ? '1px solid #b48569' : 'none' }}
+              />
+            </div>
+            {/* Праве око */}
+            <div className="relative w-8 h-5 flex items-center justify-center overflow-hidden rounded-full">
               <AnimatePresence>
                 {!isBlinking && (
                   <motion.div
-                    initial={{ scaleY: 0, opacity: 0 }}
-                    animate={{ scaleY: 1, opacity: 1 }}
-                    exit={{ scaleY: 0, opacity: 0 }}
-                    transition={{ duration: 0.1 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.05 }}
                     className="absolute inset-0 flex items-center justify-center"
                   >
                     <motion.div
@@ -484,10 +551,18 @@ export function LiveAvatar({
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Повіка для кліпання */}
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: isBlinking ? '100%' : '0%' }}
+                transition={{ duration: 0.1, ease: "easeInOut" }}
+                className="absolute top-0 left-0 w-full bg-[#d6a98b]/90 backdrop-blur-sm z-10"
+                style={{ originY: 0, borderBottom: isBlinking ? '1px solid #b48569' : 'none' }}
+              />
             </div>
           </div>
-
-          {/* Layer 6: Traditional Ukrainian Embroidered Collar (Вишиванка) Subtle Sheen */}
+          {/* Шар 6: Вишиваний комір (м'яке фольклорне підсвічування) */}
           <div 
             className="absolute bottom-0 left-0 right-0 h-1/4 pointer-events-none mix-blend-overlay opacity-60"
             style={{
@@ -501,7 +576,7 @@ export function LiveAvatar({
             />
           </div>
 
-          {/* Voice Visualizer Overlay for Speaking State */}
+          {/* Візуалізатор голосу під час мовлення */}
           <div className={cn(
             "absolute bottom-8 left-1/2 -translate-x-1/2 flex items-end gap-1.5 h-6 transition-opacity duration-300 z-40 pointer-events-none",
             state === 'speaking' ? "opacity-100" : "opacity-0"
@@ -517,12 +592,12 @@ export function LiveAvatar({
           </div>
         </motion.div>
 
-        {/* Soft Vignette & Subtle Gloss Highlight */}
+        {/* М'яка віньєтка та блік */}
         <div className="absolute inset-0 rounded-full ring-1 ring-white/20 pointer-events-none shadow-inner" />
         <div className="absolute -top-12 -left-12 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
       </div>
 
-      {/* Floating Ambient Sparkle Nodes on Hover */}
+      {/* Інтерактивна іскра при наведенні курсора */}
       <AnimatePresence>
         {isHovered && (
           <motion.div
@@ -538,3 +613,95 @@ export function LiveAvatar({
     </div>
   );
 }
+
+// Декоратор «Червона Нитка» (український стилістичний мотив)
+export const RedThreadDecorator: React.FC<{ className?: string }> = ({ className = "" }) => (
+  <div className={cn("h-0.5 w-full bg-gradient-to-r from-transparent via-[#D32F2F] to-transparent opacity-40", className)} />
+);
+
+// 1. Поточна 2D-версія живого аватара (надійний фолбек з мімікою та паралаксом)
+export const Fallback2DAvatar = ({ 
+  isConnected, 
+  isConnecting, 
+  emotion = 'neutral',
+  size = 'xl',
+  agentName
+}: { 
+  isConnected: boolean; 
+  isConnecting: boolean; 
+  emotion?: AvatarEmotion;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  agentName?: string;
+}) => (
+  <LiveAvatar 
+    state={isConnected ? 'speaking' : isConnecting ? 'listening' : 'idle'}
+    emotion={emotion}
+    size={size}
+    agentName={agentName}
+  />
+);
+
+// 2. Скелет для майбутнього GLB Аватара
+// Коли додасте react-three-fiber, цей компонент буде відмальовувати 3D-модель
+export const GlbAvatarModel = ({ isConnected }: { isConnected: boolean }) => {
+  /*
+  const { scene, nodes } = useGLTF('/models/pani_dumka.glb');
+
+  // Тут буде логіка ліпсінку від ElevenLabs.
+  // Наприклад, аналіз Web Audio API AnalyzerNode для зміни Morph Targets:
+  useFrame(() => {
+    if (isConnected && nodes.Head) {
+      // nodes.Head.morphTargetInfluences[nodes.Head.morphTargetDictionary['mouthOpen']] = currentAudioVolume;
+    }
+  });
+
+  return <primitive object={scene} scale={1.5} position={[0, -1, 0]} />;
+  */
+  return null;
+};
+
+// 3. Контейнер Аватара (Перемикач 2D / 3D)
+export const DumkaAvatarContainer = ({ 
+  isConnected, 
+  isConnecting,
+  emotion = 'neutral',
+  size = 'xl',
+  agentName
+}: { 
+  isConnected: boolean; 
+  isConnecting: boolean;
+  emotion?: AvatarEmotion;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  agentName?: string;
+}) => {
+  // Змініть на true, коли встановите бібліотеки (three, @react-three/fiber, @react-three/drei) та додасте GLB файл
+  const USE_3D_AVATAR = false;
+
+  if (!USE_3D_AVATAR) {
+    return (
+      <Fallback2DAvatar 
+        isConnected={isConnected} 
+        isConnecting={isConnecting} 
+        emotion={emotion}
+        size={size}
+        agentName={agentName}
+      />
+    );
+  }
+
+  return (
+    <div className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center">
+      {/*
+      Коли USE_3D_AVATAR буде true, тут працюватиме Canvas:
+      <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        <React.Suspense fallback={<Fallback2DAvatar isConnected={isConnected} isConnecting={isConnecting} />}>
+          <GlbAvatarModel isConnected={isConnected} />
+        </React.Suspense>
+      </Canvas>
+      */}
+    </div>
+  );
+};
+

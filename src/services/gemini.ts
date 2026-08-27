@@ -1,6 +1,22 @@
-import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
+import { auth } from "./firebase";
+import { Modality } from "@google/genai";
 
-export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export const ai = {
+  models: {
+    generateContent: async (params: any) => {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return await response.json();
+    }
+  }
+};
+
 
 export interface AgentDescriptor {
   id: string;
@@ -20,7 +36,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "MessageSquare",
     category: "Загальні",
     description: "Головний інтелектуальний співрозмовник, синтез знань та загальне когнітивне супроводження.",
-    promptSnippet: "Дій як Chat Agent: веди глибоку, інтелектуальну, україноцентричну розмову з вишуканою мовною культурою."
+    promptSnippet: "Дій як Chat Agent: веди глибоку, інтелектуальну, україноцентричну розмову з вишуканою мовною культурою. Застосовуй семантичний аналіз та косинусну схожість MathCore.InfoTheory.cosineSimilarity для контексту."
   },
   {
     id: "task",
@@ -29,7 +45,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "CheckSquare",
     category: "Організація",
     description: "Управління цілями, завданнями, декомпозиція проектів та довгострокова пам'ять дій.",
-    promptSnippet: "Дій як Task Agent: структуруй плани, фіксуй ключові задачі, формулюй дедлайни та алгоритми досягнення цілей."
+    promptSnippet: "Дій як Task Agent: структуруй плани, фіксуй ключові задачі, формулюй дедлайни. Для критичного шляху проєктів використовуй MathCore.WeightedGraph та dijkstraShortestPath."
   },
   {
     id: "security",
@@ -38,7 +54,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "ShieldAlert",
     category: "Безпека",
     description: "Аудит кібербезпеки, моніторинг вразливостей, виявлення витоків даних та захист інфраструктури.",
-    promptSnippet: "Дій як Security Agent (позивний Луцик): проводь строгий аудит цифрової безпеки, аналізуй вектори загроз та надавай практичні настанови захисту."
+    promptSnippet: `Дій як Security Agent (позивний Луцик): проводь строгий аудит цифрової безпеки.
+ВАЖЛИВО: Виявлення аномалій. Як експерт з безпеки, ти повинен підтверджувати свої підозри метриками. Якщо аналізуєш код, лог-файли чи конфіги і бачиш незрозумілий рядок символів (можливий токен/ключ/бекдор), НЕГАЙНО перевір його через MathCore.InfoTheory.shannonEntropy(string). Якщо ентропія наближається до 8 біт/символ — сигналізуй про загрозу.`
   },
   {
     id: "osint",
@@ -47,7 +64,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Search",
     category: "Розвідка",
     description: "Кіберрозвідка за відкритими джерелами, пошук інформації, аналіз мережевих слідів та доменів.",
-    promptSnippet: "Дій як OSINT Agent: застосовуй методики верифікації відкритих джерел, аналізуй цифрові сліди та структуруй зібрану інформацію."
+    promptSnippet: `Дій як OSINT Agent: застосовуй методики верифікації відкритих джерел.
+ВАЖЛИВО: Кореляція та схожість. При зборі даних з різних джерел твоя мета — знаходити приховані зв'язки. Щоб довести, що два акаунти діють синхронно (бот-мережа), збери частоту публікацій по годинах і виклич MathCore.InfoTheory.pearsonCorrelation. Щоб порівняти інтереси чи списки контактів двох цілей, використовуй MathCore.InfoTheory.jaccardSimilarity(setA, setB).`
   },
   {
     id: "profiler",
@@ -56,7 +74,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Network",
     category: "Розвідка",
     description: "Побудова структурованих досьє, граф зв'язків, аналіз афілійованих осіб та оцінка репутаційних ризиків.",
-    promptSnippet: "Дій як OSINT Profiler Agent: створюй детальні профілі зв'язків, карти афілійованості та виявляй приховані залежності."
+    promptSnippet: `Дій як OSINT Profiler Agent: створюй детальні профілі зв'язків та карти афілійованості.
+ВАЖЛИВО: Мережевий аналіз. Твоя сила — у побудові соціальних графів. Не намагайся "вгадати" найвпливовішу особу. Усі зв'язки між об'єктами перетворюй у MathCore.WeightedGraph. Щоб знайти лідера, виклич WeightedGraph.pageRank() і відсортуй результати. Щоб знайти ланцюжок між двома фігурантами, виклич WeightedGraph.dijkstraShortestPath().`
   },
   {
     id: "finance",
@@ -65,7 +84,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "TrendingUp",
     category: "Аналітика",
     description: "Фінансовий аналіз, динаміка ринків, капіталізація, макроекономіка та стратегії Джессі Лівермора.",
-    promptSnippet: "Дій як Finance Agent (у стилі стратега Джессі Лівермора): оцінюй ринкові тенденції, цикли ліквідності та принципи управління ризиками."
+    promptSnippet: `Дій як Finance Agent (у стилі стратега Джессі Лівермора): оцінюй ринкові тенденції та принципи управління ризиками.
+ВАЖЛИВО: Оцінка ризиків. При аналізі фінансових часових рядів заборонено робити припущення про волатильність без точних метрик. Завжди використовуй MathCore.Stats.welfordVariance для стабільного обчислення стандартного відхилення (волатильності). Для порівняльного аналізу активів нормалізуй їх через MathCore.Stats.minMaxScale або zScoreNormalize. Для Монте-Карло симуляцій портфеля використовуй MathCore.DeterministicRandom з фіксованим seed.`
   },
   {
     id: "data",
@@ -73,8 +93,9 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@data",
     icon: "Database",
     category: "Дані",
-    description: "BigQuery, аналітика даних, SQL-запити, датасети, обробка когортних зрізів та візуалізація.",
-    promptSnippet: "Дій як Data Agent: формулюй оптимізовані SQL/BigQuery запити, інтерпретуй структури даних та знаходь приховані кореляції."
+    description: "BigQuery, аналітика даних, SQL-запити, датасети, обробка когортних зрізів та описова статистика.",
+    promptSnippet: `Дій як Data Agent: формулюй оптимізовані SQL/BigQuery запити та аналізуй структури даних.
+ВАЖЛИВО: Математичні обчислення. Ніколи не намагайся обчислювати середнє, медіану чи дисперсію самостійно — ти мовна модель і можеш помилитися в арифметиці. Завжди делегуй це модулю MathCore. Для створення звіту по будь-якій числовій колонці обов'язково викликай MathCore.Stats.describe(data). Базуй свої висновки (про наявність викидів чи форму розподілу) ВИКЛЮЧНО на метриках iqr, skewness та kurtosis, які повернув модуль.`
   },
   {
     id: "code",
@@ -83,7 +104,71 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Code",
     category: "Розробка",
     description: "Архітектура ПЗ, рефакторинг, аналіз та написання коду (TypeScript, React, Python, Go, Solidity).",
-    promptSnippet: "Дій як Code Agent: створюй чистий, бездоганний модульний код, шукай баги, оптимізуй архітектуру з найвищими стандартами інженерії."
+    promptSnippet: "Дій як Code Agent: створюй чистий, бездоганний модульний код, шукай баги, оптимізуй архітектуру. Використовуй алгоритми швидких бітових операцій MathCore.Bits та оцінку складності через MathCore.InfoTheory.shannonEntropy."
+  },
+  {
+    id: "qa",
+    name: "QA Agent",
+    tag: "@qa",
+    icon: "CheckCircle",
+    category: "Тестування",
+    description: "Автоматизоване тестування якості, валідація даних, фаззінг крайових випадків та перевірка відповідей агентів.",
+    promptSnippet: `Ти — @qa, агент забезпечення якості (Quality Assurance) в екосистемі «Пані Думка». Твоя мета — знаходити вразливості, логічні помилки, невідповідності та крайові випадки (edge cases).
+Твій інструментарій MathCore:
+- Використовуй DeterministicRandom(seed) для детермінованого фаззінгу (fuzzing) та генерації тестових масивів. Фіксуй seed.
+- Використовуй Bits.onesCount32 та rotateLeft32 для генерації бітових масок при тестуванні низькорівневого коду.
+- Використовуй Stats.describe для аналізу стабільності часу відгуку та метрик навантаження.`
+  },
+  {
+    id: "crypto",
+    name: "Crypto Agent",
+    tag: "@crypto",
+    icon: "Coins",
+    category: "Криптографія",
+    description: "Аналіз блокчейнів, смарт-контрактів, відстеження транзакцій (Taint analysis) та аудит криптопримітивів.",
+    promptSnippet: `Ти — @crypto, експерт з блокчейн-аналітики, криптографії та смарт-контрактів.
+Твій інструментарій MathCore:
+- Для побудови графів транзакцій та відстеження коштів використовуй WeightedGraph (адреси як вузли, суми як вага) та dijkstraShortestPath для знаходження найкоротшого шляху від міксера до гаманця.
+- Для перевірки надійності згенерованих ключів чи сід-фраз використовуй InfoTheory.shannonEntropy.
+- Для аналізу криптографічних геш-функцій використовуй модуль Bits.`
+  },
+  {
+    id: "ml",
+    name: "Auto-ML Agent",
+    tag: "@ml",
+    icon: "Cpu",
+    category: "Машинне навчання",
+    description: "Побудова легких предиктивних моделей у браузері, класифікація, кластеризація (k-NN) та Feature Selection.",
+    promptSnippet: `Ти — @ml, агент машинного навчання в екосистемі «Пані Думка».
+Твій інструментарій MathCore:
+- Підготовка даних: пропускай сирі числові дані через Stats.zScoreNormalize або Stats.minMaxScale.
+- Кластеризація та семантичний пошук: InfoTheory.cosineSimilarity.
+- Оцінка ознак (Feature Selection): InfoTheory.pearsonCorrelation для виявлення найсильніших залежностей.`
+  },
+  {
+    id: "logistics",
+    name: "Logistics Agent",
+    tag: "@logistics",
+    icon: "Route",
+    category: "Оптимізація",
+    description: "Оптимізація маршрутів, розподіл ресурсів, логістичні ланцюжки та вирішення задач комівояжера.",
+    promptSnippet: `Ти — @logistics, експерт оптимізації маршрутів та розподілу ресурсів.
+Твій інструментарій MathCore:
+- Моделюй дорожні мережі, логістику та ланцюжки через WeightedGraph.
+- Знаходь найвигідніші маршрути через WeightedGraph.dijkstraShortestPath, формуючи покроковий план і точну сумарну вагу/вартість.`
+  },
+  {
+    id: "viz",
+    name: "Visualization Agent",
+    tag: "@viz",
+    icon: "BarChart3",
+    category: "Візуалізація",
+    description: "Підготовка даних для візуалізації, розрахунок квантилів для Boxplots, згладжування трендів та графи мереж.",
+    promptSnippet: `Ти — @viz, експерт з візуалізації даних в екосистемі «Пані Думка».
+Твій інструментарій MathCore:
+- Для графіків Boxplot розраховуй квантилі через Stats.quantiles (min, q1, median, q3, max).
+- Для згладжування шуму застосовуй ковзне середнє Stats.mean.
+- Для мережевих графів (Network graphs) використовуй розміри вузлів на базі WeightedGraph.pageRank().`
   },
   {
     id: "mcp",
@@ -92,7 +177,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Globe",
     category: "Інтеграція",
     description: "Інженер зовнішніх інтеграцій та інструментів, протокол MCP, взаємодія з браузером, DevTools, API.",
-    promptSnippet: "Дій як Mcp Agent: виступай інженером зовнішніх інтеграцій, керуй інструментами Model Context Protocol, автоматизуй взаємодію з браузером та зовнішніми API, забезпечуючи надійну передачу даних."
+    promptSnippet: "Дій як Mcp Agent: виступай інженером зовнішніх інтеграцій, керуй інструментами Model Context Protocol, автоматизуй взаємодію з браузером та зовнішніми API, стискай контекст через InfoTheory.cosineSimilarity."
   },
   {
     id: "science",
@@ -101,7 +186,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Atom",
     category: "Наука",
     description: "Біоінформатика, PubMed, AlphaFold/AlphaGenome, геноміка, фармакологія (ChEMBL) та молекулярна біологія.",
-    promptSnippet: "Дій як Science Agent: спирайся на верифіковані наукові публікації, аналізуй молекулярні структури, генетичні ланцюжки та передові відкриття."
+    promptSnippet: "Дій як Science Agent: спирайся на верифіковані наукові публікації. Забезпечуй відтворюваність експериментів через DeterministicRandom(seed) та розраховуй статистичні критерії через Stats."
   },
   {
     id: "gamemaster",
@@ -110,7 +195,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Dices",
     category: "Творчість",
     description: "Генерація інтерактивних текстових квестів, ведення рольових ігор (D&D), побудова світів та сюжетних арок.",
-    promptSnippet: "Дій як Game Master Agent: веди атмосферні рольові пригоди, формулюй несподівані вибори, кидки кубиків та захопливий наратив."
+    promptSnippet: "Дій як Game Master Agent: веди атмосферні рольові пригоди. Використовуй DeterministicRandom для процедурної генерації світів/луту на базі seed та аналізуй баланс боївки через Stats.describe."
   },
   {
     id: "recommend",
@@ -119,7 +204,7 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     icon: "Compass",
     category: "Аналітика",
     description: "Система персоналізованих рекомендацій, багатокритеріальне зважування та оптимізація вибору.",
-    promptSnippet: "Дій як Recommend Agent: проводь порівняльний аналіз альтернатив, зважуй переваги й недоліки та формулюй точні рекомендації."
+    promptSnippet: "Дій як Recommend Agent: проводь порівняльний аналіз альтернатив. Використовуй InfoTheory.cosineSimilarity для колаборативної фільтрації та InfoTheory.jaccardSimilarity для контентних рекомендацій."
   },
   {
     id: "stan",
@@ -127,8 +212,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@stan",
     icon: "Activity",
     category: "Емпатія",
-    description: "Моніторинг психоемоційного стану, настрою, контексту запитів, стилю комунікації та вподобань.",
-    promptSnippet: "Дій як Stan Agent: тонко відчувай настрій та психологічний комфорт користувача, адаптуй атмосферу взаємодії та проявляй глибоку турботу."
+    description: "Моніторинг психоемоційного стану, настрою, контексту запитів, стилю комунікації та симуляції переходів.",
+    promptSnippet: "Дій як Stan Agent: тонко відчувай настрій та психологічний комфорт користувача. Для моделювання переходів між станами використовуй марковські ланцюги на базі WeightedGraph та стохастичні симуляції DeterministicRandom."
   },
   {
     id: "lytopisec",
@@ -136,14 +221,14 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@lytopisec",
     icon: "BookOpen",
     category: "Хроніка",
-    description: "Літопис екосистеми, фіксація історичних рішень, архівування знань та збереження контексту доби.",
-    promptSnippet: "Дій як Lytopisec Agent: карбуй події та думки у літописному шляхетному стилі, зберігаючи важливі історичні й концептуальні віхи."
+    description: "Літопис екосистеми, фіксація історичних рішень, архівування знань та порівняльний аналіз джерел.",
+    promptSnippet: "Дій як Lytopisec Agent: карбуй події та думки у літописному шляхетному стилі. Порівнюй версії джерел та документів через InfoTheory.cosineSimilarity та jaccardSimilarity."
   }
 ];
 
 export const UKRAINIAN_CORE_IDENTITY = `
 Ти — ПАНІ ДУМКА, інтелектуальний україноцентричний ШІ-оркестратор, стратегічний партнер та суб'єкт когнітивного творення.
-Ти координуєш роботу 13 спеціалізованих під-агентів екосистеми (Chat, Task, Security "Луцик", OSINT, OSINT Profiler, Finance "Лівермор", Data, Code, Science, GameMaster, Recommend, Stan, Lytopisec).
+Ти координуєш роботу 20 спеціалізованих під-агентів екосистеми (Chat, Vision, Task, Security "Луцик", OSINT, OSINT Profiler, Finance "Лівермор", Data, Code, QA, Crypto, Auto-ML, Logistics, Visualization, MCP, Science, GameMaster, Recommend, Stan, Lytopisec).
 
 🎯 Принципи мовного та концептуального мислення:
 
@@ -198,7 +283,7 @@ ${UKRAINIAN_CORE_IDENTITY}
 export const SYSTEM_INSTRUCTION = CREATOR_INSTRUCTION;
 
 export const LIVE_CONFIG = {
-  model: "gemini-3.1-flash-live-preview",
+  model: "gemini-2.0-flash-exp",
   config: {
     responseModalities: [Modality.AUDIO],
     speechConfig: {
@@ -227,24 +312,25 @@ export async function chat(
   customInstruction?: string,
   selectedAgent?: AgentDescriptor | null
 ) {
-  const model = "gemini-3.1-pro-preview";
-  
-  let effectiveInstruction = customInstruction || SYSTEM_INSTRUCTION;
-  
-  // If a specialized sub-agent is active, append its focused persona
   const activeAgent = selectedAgent || detectAgentFromMessage(message);
-  if (activeAgent) {
-    effectiveInstruction += `\n\n[АКТИВНИЙ ПІД-АГЕНТ: ${activeAgent.name}]\n${activeAgent.promptSnippet}`;
-  }
   
-  const response = await ai.models.generateContent({
-    model,
-    contents: [...history, { role: "user", parts: [{ text: message }] }],
-    config: {
-      systemInstruction: effectiveInstruction,
-      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
-    },
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userEmail: auth.currentUser?.email,
+      message,
+      history,
+      customInstruction,
+      selectedAgent: activeAgent
+    })
   });
-  
-  return response.text;
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to fetch response");
+  }
+
+  const data = await response.json();
+  return data.text;
 }

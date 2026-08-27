@@ -1,54 +1,13 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
-import { WebSocketServer } from "ws";
+import { GoogleGenAI, LiveServerMessage, Modality, Type, ThinkingLevel } from "@google/genai";
+import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { listMcpTools, callMcpTool } from "./src/services/mcp";
+import { listEmails, readEmail, sendEmail } from "./src/services/gmail";
 import { mcpSchemaToGeminiSchema } from "./mcp_mapper";
 
-async function streamElevenLabs(text: string, ws: import("ws").WebSocket) {
-  if (!text.trim()) return;
-  try {
-    let apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey || !apiKey.startsWith('sk_')) {
-      apiKey = "sk_31d301a370c8c6ff93f46da06e58bc1a64cd05afc88f03f4";
-    }
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/XsDwVNgam5laFw4WF7S6/stream?output_format=pcm_24000`, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text: text,
-        model_id: 'eleven_multilingual_v2'
-      })
-    });
-
-    if (!response.ok) {
-       console.error("ElevenLabs error:", await response.text());
-       return;
-    }
-
-    if (response.body) {
-      let leftover = Buffer.alloc(0);
-      // @ts-ignore
-      for await (const chunk of response.body) {
-        const data = Buffer.concat([leftover, Buffer.from(chunk)]);
-        const remainder = data.length % 2;
-        const validData = data.subarray(0, data.length - remainder);
-        leftover = data.subarray(data.length - remainder);
-        
-        if (validData.length > 0 && ws.readyState === 1) { // OPEN
-          ws.send(JSON.stringify({ audio: validData.toString('base64') }));
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Error streaming from ElevenLabs:", err);
-  }
-}
 
 async function startServer() {
   const app = express();
@@ -65,7 +24,7 @@ async function startServer() {
     }
   });
 
-  // API route for transcription using gemini-3.5-flash
+  // API route for transcription using gemini-3.6-flash
   app.post("/api/transcribe", async (req, res) => {
     try {
       const { audioBase64, mimeType } = req.body;
@@ -74,7 +33,7 @@ async function startServer() {
       }
       
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: [
           {
             inlineData: {
@@ -96,8 +55,12 @@ async function startServer() {
   const server = createServer(app);
   const wss = new WebSocketServer({ server, path: '/live' });
 
-  wss.on("connection", async (clientWs) => {
-    let textBuffer = "";
+  wss.on("connection", async (clientWs, req) => {
+    
+    // Parse URL and token
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+    const reqVoiceId = url.searchParams.get("voiceId");
     
     // Map to keep track of tool names for MCP
     const mcpToolMap = new Map<string, string>();
@@ -123,6 +86,42 @@ async function startServer() {
     const tools = [{
       functionDeclarations: [
         {
+          name: "gmail_list_emails",
+          description: "Переглянути список останніх листів у Gmail користувача (пошук за запитом).",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              query: { type: Type.STRING, description: "Запит для пошуку (наприклад, 'is:unread', 'from:boss@example.com'). За замовчуванням 'in:inbox'." },
+              maxResults: { type: Type.INTEGER, description: "Максимальна кількість листів (за замовчуванням 5)." }
+            }
+          }
+        },
+        {
+          name: "gmail_read_email",
+          description: "Прочитати повний вміст конкретного листа.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              messageId: { type: Type.STRING, description: "ID листа." }
+            },
+            required: ["messageId"]
+          }
+        },
+        {
+          name: "gmail_send_email",
+          description: "Надіслати листа через Gmail.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              to: { type: Type.STRING, description: "Електронна адреса отримувача." },
+              subject: { type: Type.STRING, description: "Тема листа." },
+              bodyText: { type: Type.STRING, description: "Текст листа." }
+            },
+            required: ["to", "subject", "bodyText"]
+          }
+        },
+
+        {
           name: "activate_agent",
           description: "Активувати конкретного агента з вашої команди для виконання завдання. Використовуй це, щоб візуально показати, що агент працює.",
           parameters: {
@@ -145,11 +144,151 @@ async function startServer() {
             required: ["content"]
           }
         },
+        {
+          name: "google_drive_list_files",
+          description: "Отримати список файлів на Google Drive користувача",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              query: { type: Type.STRING, description: "Опціональний запит для пошуку файлів" }
+            }
+          }
+        },
+        {
+          name: "google_drive_read_file",
+          description: "Зчитати текстовий вміст файлу Google Drive. Працює з документами Google Docs та звичайними текстовими файлами.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              fileId: { type: Type.STRING, description: "ID файлу для читання" }
+            },
+            required: ["fileId"]
+          }
+        },
+        {
+          name: "google_docs_create_document",
+          description: "Створити новий Google Документ та отримати його ID",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "Назва нового документа" }
+            },
+            required: ["title"]
+          }
+        },
+        {
+          name: "google_docs_insert_text",
+          description: "Додати текст у існуючий Google Документ",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              documentId: { type: Type.STRING, description: "ID документа" },
+              text: { type: Type.STRING, description: "Текст для вставки" }
+            },
+            required: ["documentId", "text"]
+          }
+        },
         ...mcpFunctionDeclarations
       ]
     }];
 
     try {
+        
+      let elevenLabsWs: import("ws").WebSocket | null = null;
+      let elevenLabsQueue: string[] = [];
+      
+      const initElevenLabsWs = () => {
+        if (elevenLabsWs) return elevenLabsWs;
+        let apiKey = process.env.ELEVENLABS_API_KEY;
+        if (!apiKey) {
+          console.error("Missing ELEVENLABS_API_KEY");
+          return;
+        }
+        const voiceId = reqVoiceId || process.env.ELEVENLABS_VOICE_ID || "XsDwVNgam5laFw4WF7S6";
+        
+        const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_flash_v2_5&output_format=pcm_24000&language_code=uk&apply_text_normalization=on&optimize_streaming_latency=0`;
+        
+        elevenLabsWs = new WebSocket(wsUrl, {
+          headers: {
+            'xi-api-key': apiKey
+          }
+        });
+        
+        elevenLabsWs.on('open', () => {
+          elevenLabsWs?.send(JSON.stringify({ 
+            text: " ",
+            voice_settings: {
+              stability: 0.0,
+              similarity_boost: 1.0,
+              style: 0.0,
+              use_speaker_boost: true
+            },
+            generation_config: {
+              chunk_length_schedule: [120, 160, 250, 290]
+            }
+          }));
+          while (elevenLabsQueue.length > 0) {
+            const chunk = elevenLabsQueue.shift();
+            if (chunk !== undefined) {
+              // Check if the chunk is JSON string (from our updated streamTextToElevenLabs)
+              try {
+                JSON.parse(chunk);
+                elevenLabsWs?.send(chunk);
+              } catch {
+                elevenLabsWs?.send(JSON.stringify({ text: chunk }));
+              }
+            }
+          }
+        });
+        
+        elevenLabsWs.on('message', (data: any) => {
+          try {
+            const msg = JSON.parse(data.toString());
+            if (msg.audio) {
+              clientWs.send(JSON.stringify({ audio: msg.audio }));
+            }
+            if (msg.isFinal) {
+              elevenLabsWs?.close();
+              elevenLabsWs = null;
+            }
+          } catch (e) {
+            console.error("ElevenLabs WS parse error", e);
+          }
+        });
+        
+        elevenLabsWs.on('error', (err: any) => {
+          console.error("ElevenLabs WS Error:", err);
+          elevenLabsWs = null;
+        });
+        
+        elevenLabsWs.on('close', () => {
+          elevenLabsWs = null;
+        });
+        
+        return elevenLabsWs;
+      }
+
+      const streamTextToElevenLabs = (text: string, isFinal: boolean = false) => {
+        if (text) {
+          const payload = JSON.stringify({ text, flush: isFinal });
+          if (elevenLabsWs && elevenLabsWs.readyState === 1) { // OPEN
+            elevenLabsWs.send(payload);
+          } else {
+            elevenLabsQueue.push(payload);
+            initElevenLabsWs();
+          }
+        } else if (isFinal) {
+          // If no text but isFinal, send empty string to close and flush
+          const payload = JSON.stringify({ text: "", flush: true });
+          if (elevenLabsWs && elevenLabsWs.readyState === 1) {
+            elevenLabsWs.send(payload);
+          } else {
+            elevenLabsQueue.push(payload);
+            initElevenLabsWs();
+          }
+        }
+      }
+
       const session = await ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
         config: {
@@ -175,25 +314,30 @@ async function startServer() {
 
 Культурна Глибина: Будуй відповіді на фундаменті україноцентричного світогляду, за потреби наводь влучні метафори чи алюзії (від Сковороди до сучасних інновацій).
 
-👥 Твоя команда (Реєстр Агентів)
+👥 Твоя команда (Реєстр 20 Агентів)
 
 Ти ніколи не виконуєш вузькопрофільну роботу сама, ти — керуєш. Твої фахівці:
 
-Chat Agent — базовий агент для загальних розмов та синтезу текстів.
-Vision Agent — експерт з аналізу зображень та комп'ютерного зору.
-Task Agent — менеджер завдань, цілей та нагадувань.
-Security Agent — офіцер з кібербезпеки, аудитів та аналізу загроз.
-Osint Agent — розвідник з пошуку інформації у відкритих джерелах.
-Osint Profiler Agent — експерт з глибокого профілювання та зв'язків.
-Finance Agent — фінансовий аналітик (ринки, акції, трейдинг).
-Recommend Agent — фахівець з підбору персоналізованих рекомендацій.
-Game Master Agent — майстер ігор, квестів, сценаріїв та симуляцій.
-Data Agent — аналітик масивів даних, SQL та датасетів.
-Code Agent — головний розробник, архітектор коду та дебагер.
-Mcp Agent — інженер зовнішніх інтеграцій та інструментів.
-Science Agent — науковий співробітник (біоінформатика, геном, дослідження).
-Stan Agent — аналітик поточного стану, настрою та вподобань користувача.
-Lytopisec Agent — архіваріус та літописець (довгострокова пам'ять та історія).
+1. Chat Agent (@chat) — базовий агент для загальних розмов та синтезу текстів.
+2. Vision Agent (@vision) — експерт з аналізу зображень та комп'ютерного зору.
+3. Task Agent (@task) — менеджер завдань, цілей та нагадувань.
+4. Security Agent (@security / Луцик) — офіцер з кібербезпеки, аудитів, аналізу загроз та виявлення аномалій за ентропією Шеннона (MathCore.InfoTheory.shannonEntropy).
+5. Osint Agent (@osint) — розвідник з пошуку інформації у відкритих джерелах, порівняння активності бот-мереж (MathCore.InfoTheory.pearsonCorrelation) та перевірки інтересів (jaccardSimilarity).
+6. Osint Profiler Agent (@profiler) — експерт з профілювання, зв'язків та соціальних графів (MathCore.WeightedGraph, pageRank, dijkstraShortestPath).
+7. Finance Agent (@finance / Лівермор) — фінансовий аналітик (ринки, волатильність за WelfordVariance, нормалізація рядів minMax/zScore, Монте-Карло DeterministicRandom).
+8. Data Agent (@data) — аналітик масивів даних, SQL та датасетів (обов'язковий виклик MathCore.Stats.describe, оцінка розподілів за iqr, skewness, kurtosis).
+9. Code Agent (@code) — головний розробник, архітектор коду та дебагер (бітові операції Bits, оцінка складності через ентропію).
+10. QA Agent (@qa) — агент забезпечення якості, автоматизоване тестування, детермінований фаззінг (DeterministicRandom з фіксацією seed), бітові маски Bits та Stats.describe.
+11. Crypto Agent (@crypto) — експерт з блокчейн-аналітики, Taint-аналізу коштів через WeightedGraph/dijkstraShortestPath, аудиту ентропії ключів (shannonEntropy) та примітивів Bits.
+12. Auto-ML Agent (@ml) — предиктивні моделі, нормалізація zScore/minMax, k-NN/семантичний пошук через cosineSimilarity, Feature Selection через pearsonCorrelation.
+13. Logistics Agent (@logistics) — оптимізація маршрутів та ресурсів через WeightedGraph і dijkstraShortestPath з точним розрахунком сумарної вартості.
+14. Visualization Agent (@viz) — підготовка даних для візуалізації, розрахунок квантилів для Boxplot (Stats.quantiles), згладжування трендів (Stats.mean) та мережеві графи на основі pageRank.
+15. Recommend Agent (@recommend) — фахівець з підбору персоналізованих рекомендацій, колаборативна фільтрація (cosineSimilarity) та контентні рекомендації (jaccardSimilarity).
+16. Game Master Agent (@game) — майстер ігор, квестів, процедурна генерація на базі DeterministicRandom(seed) та баланс боївки через Stats.describe.
+17. Mcp Agent (@mcp) — інженер зовнішніх інтеграцій, протоколів MCP та інструментів.
+18. Science Agent (@science) — науковий співробітник (біоінформатика, PubMed, відтворюваність досліджень через DeterministicRandom та параметрична статистика).
+19. Stan Agent (@stan) — аналітик психоемоційного стану, настрою, моделювання переходів через марковські графи (WeightedGraph).
+20. Lytopisec Agent (@lytopisec) — архіваріус та літописець (довгострокова пам'ять, порівняння джерел через cosineSimilarity/jaccardSimilarity).
 
 ⚙️ Твій робочий процес (Рушій Оркестрації)
 
@@ -243,43 +387,137 @@ Lytopisec Agent — архіваріус та літописець (довгос
             // Note: with Modality.TEXT, audio will be undefined here.
             const audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             
-            let inputTranscription = null;
             let outputTranscription = null;
             
             if (message.serverContent?.modelTurn?.parts) {
                for (const part of message.serverContent.modelTurn.parts) {
                   if (part.text) {
                      outputTranscription = (outputTranscription || "") + part.text;
-                     textBuffer += part.text;
-                     
-                     // Send to ElevenLabs sentence by sentence
-                     const match = textBuffer.match(/(.*?[.?!])(\s+|$)(.*)/);
-                     if (match) {
-                        const sentence = match[1];
-                        textBuffer = match[3] || "";
-                        streamElevenLabs(sentence, clientWs);
-                     }
+                     // Stream directly to ElevenLabs
+                     streamTextToElevenLabs(part.text);
                   }
                }
             }
 
             if (message.serverContent?.interrupted) {
-              textBuffer = ""; // clear buffer on interrupt
               clientWs.send(JSON.stringify({ interrupted: true }));
+              if (elevenLabsWs) {
+                 // Close the socket to stop audio immediately
+                 elevenLabsWs.close();
+                 elevenLabsWs = null;
+                 elevenLabsQueue = [];
+              }
             }
             
             if (message.serverContent?.turnComplete) {
-              if (textBuffer.trim().length > 0) {
-                 streamElevenLabs(textBuffer, clientWs);
-                 textBuffer = "";
-              }
+               streamTextToElevenLabs("", true);
             }
+
             
             if (message.toolCall) {
               const clientToolCalls = [];
               
               for (const call of message.toolCall.functionCalls) {
-                if (call.name.startsWith("mcp_")) {
+                if (call.name === "google_drive_list_files" || call.name === "google_drive_read_file" || call.name === "google_docs_create_document" || call.name === "google_docs_insert_text") {
+                  if (!token) {
+                    session.sendToolResponse({
+                      functionResponses: [{ id: call.id, name: call.name, response: { error: "No OAuth token provided. Please connect Google Drive first." } }]
+                    });
+                    continue;
+                  }
+                  
+                  if (call.name === "google_drive_list_files") {
+                    fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent((call.args.query as string) || "trashed=false")}`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { result: JSON.stringify(data) } }]
+                      });
+                    })
+                    .catch(e => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                  } else if (call.name === "google_drive_read_file") {
+                    // Try to get as export (for Google Docs) or raw alt=media
+                    fetch(`https://www.googleapis.com/drive/v3/files/${call.args.fileId}?alt=media`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    })
+                    .then(async (res) => {
+                       if (res.ok) {
+                         const text = await res.text();
+                         session.sendToolResponse({
+                           functionResponses: [{ id: call.id, name: call.name, response: { result: text } }]
+                         });
+                       } else {
+                         // Fallback to export for docs
+                         return fetch(`https://www.googleapis.com/drive/v3/files/${call.args.fileId}/export?mimeType=text/plain`, {
+                           headers: { Authorization: `Bearer ${token}` }
+                         }).then(async res2 => {
+                           if (res2.ok) {
+                              const text = await res2.text();
+                              session.sendToolResponse({
+                                functionResponses: [{ id: call.id, name: call.name, response: { result: text } }]
+                              });
+                           } else {
+                              session.sendToolResponse({
+                                functionResponses: [{ id: call.id, name: call.name, response: { error: "Failed to read file. Status: " + res2.status } }]
+                              });
+                           }
+                         });
+                       }
+                    })
+                    .catch(e => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                  } else if (call.name === "google_docs_create_document") {
+                    fetch("https://docs.googleapis.com/v1/documents", {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: call.args.title })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { result: JSON.stringify(data) } }]
+                      });
+                    })
+                    .catch(e => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                  } else if (call.name === "google_docs_insert_text") {
+                    fetch(`https://docs.googleapis.com/v1/documents/${call.args.documentId}:batchUpdate`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        requests: [{
+                          insertText: {
+                            location: { index: 1 },
+                            text: call.args.text + "\n"
+                          }
+                        }]
+                      })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { result: JSON.stringify(data) } }]
+                      });
+                    })
+                    .catch(e => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                  }
+                } else if (call.name.startsWith("mcp_")) {
                   const originalName = mcpToolMap.get(call.name);
                   if (originalName) {
                     callMcpTool(originalName, call.args)
@@ -342,6 +580,89 @@ Lytopisec Agent — архіваріус та літописець (довгос
       });
     } catch (e) {
       console.error("Live API connection error", e);
+    }
+  });
+
+
+
+  app.post("/api/generate", async (req, res) => {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const params = req.body;
+      
+      const response = await ai.models.generateContent(params);
+      
+      res.json({ text: response.text });
+    } catch (error) {
+      console.error("Generate error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const { message, history, customInstruction, selectedAgent } = req.body;
+      
+      const { userEmail } = req.body;
+      const isIllia = userEmail === "illia.smileafterburn@gmail.com";
+      let model = "gemini-3.6-flash";
+      let config = {};
+      
+      if (isIllia) {
+        model = "gemini-3.7-flash";
+        config = { thinkingConfig: { thinkingBudget: 1024 } };
+      }
+      let effectiveInstruction = customInstruction || "";
+
+      if (selectedAgent) {
+        effectiveInstruction += `\n\n[АКТИВНИЙ ПІД-АГЕНТ: ${selectedAgent.name}]\n${selectedAgent.promptSnippet}`;
+      }
+      
+      const response = await ai.models.generateContent({
+        model,
+        contents: [...(history || []), { role: "user", parts: [{ text: message }] }],
+        config: {
+          systemInstruction: effectiveInstruction,
+          temperature: 0.7,
+          ...config
+        },
+      });
+      
+      res.json({ text: response.text });
+    } catch (error) {
+      console.error("Chat error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/music", async (req, res) => {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const { prompt, isPro } = req.body;
+      
+      const model = isPro ? "lyria-3-pro-preview" : "lyria-3-clip-preview";
+      
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt
+      });
+      
+      // Extract the generated audio data
+      const parts = response.candidates?.[0]?.content?.parts || [];
+      const audioPart = parts.find(p => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
+      
+      if (audioPart && audioPart.inlineData) {
+        res.json({ 
+          audioData: audioPart.inlineData.data, 
+          mimeType: audioPart.inlineData.mimeType 
+        });
+      } else {
+        res.status(500).json({ error: "No audio generated in the response" });
+      }
+    } catch (error: any) {
+      console.error("Music generation error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate music" });
     }
   });
 

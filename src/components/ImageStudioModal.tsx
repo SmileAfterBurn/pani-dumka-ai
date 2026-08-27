@@ -22,7 +22,7 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
     setIsGenerating(true);
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3.6-flash",
         contents: [
           {
             role: "user",

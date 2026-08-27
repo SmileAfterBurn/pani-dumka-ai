@@ -95,7 +95,7 @@ export function JournalView() {
               <div className="flex items-center gap-1.5 mt-3 text-[10px] text-slate-400 font-mono uppercase tracking-wider">
                 <Clock className="w-3 h-3 text-red-500" />
                 <span>
-                  {entry.createdAt?.toDate ? entry.createdAt.toDate().toLocaleString('uk-UA') : 'Щойно'}
+                  {entry.createdAt?.toDate ? entry.createdAt.toDate().toLocaleString('uk') : 'Щойно'}
                 </span>
               </div>
             </motion.div>
