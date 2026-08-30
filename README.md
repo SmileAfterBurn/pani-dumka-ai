@@ -40,13 +40,24 @@ Follow these steps to run the "Fortified Enterprise Fleet" locally:
 - A valid **Gemini API Key** (`GEMINI_API_KEY`).
 - *(Optional)* An **ElevenLabs API Key** (`ELEVENLABS_API_KEY`) for enhanced Voice TTS.
 
-### 2. Environment Variables
-Create a `.env` file in the root of the project with the following keys:
-```env
-# Required
-GEMINI_API_KEY=your_google_ai_studio_or_vertex_key
+### 2. Environment Configuration
 
-# Optional (For Live API TTS)
+For Vertex AI Enterprise integration, configure your environment by exporting the following values (or add them to your `.env` file):
+
+```bash
+# Replace the `GOOGLE_CLOUD_PROJECT_ID` and `GOOGLE_CLOUD_LOCATION` values
+# with appropriate values for your project.
+export GOOGLE_CLOUD_PROJECT=pani-dumka-01
+export GOOGLE_CLOUD_LOCATION=us-central1
+export GOOGLE_GENAI_USE_ENTERPRISE=True
+```
+
+Additionally, create a `.env` file for API keys:
+```env
+# Required for fallback / AI Studio setup
+GEMINI_API_KEY=your_api_key
+
+# Optional (For Custom TTS)
 ELEVENLABS_API_KEY=your_elevenlabs_key
 ELEVENLABS_VOICE_ID=XsDwVNgam5laFw4WF7S6
 ```
