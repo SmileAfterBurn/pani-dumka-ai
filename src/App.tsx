@@ -57,7 +57,8 @@ import {
   chat, 
   CREATOR_INSTRUCTION, 
   STANDARD_INSTRUCTION, 
-  AGENT_REGISTRY, 
+  AGENT_REGISTRY,
+  ai, 
   AgentDescriptor,
   detectAgentFromMessage 
 } from "./services/gemini";
@@ -204,7 +205,7 @@ export default function App() {
         } catch (error: any) {
       console.error("Login error:", error);
       if (error.code === 'auth/internal-error' || error.message?.includes('internal-error')) {
-        alert("Помилка авторизації. Якщо ви знаходитесь у прев'ю AI Studio (iframe), будь ласка, відкрийте застосунок у новій вкладці браузера (кнопка ↗️ вгорі справа), оскільки браузери блокують спливаючі вікна авторизації всередині iframe.");
+        alert("Помилка авторизації. Якщо ви перебуваєте у прев'ю AI Studio (iframe), будь ласка, відкрийте застосунок у новій вкладці браузера (кнопка ↗️ вгорі справа), оскільки браузери блокують спливаючі вікна авторизації всередині iframe.");
       } else {
         alert(`Помилка входу: ${error.message}`);
       }
@@ -236,7 +237,45 @@ export default function App() {
     setShowOmniTools(false);
     setView("chat");
 
-    const detectedAgent = detectAgentFromMessage(text);
+    let detectedAgent = detectAgentFromMessage(text);
+    
+    // ==========================================
+    // AUTONOMOUS AGENTIC DELEGATION (Gemini 3.5)
+    // ==========================================
+    let decisionLog = "";
+    if (!detectedAgent && !selectedAgent) {
+      try {
+        console.log("[Оркестратор] Явного тегу агента не знайдено. Ініціалізується автономне делегування через Gemini 3.5...");
+        const agentPrompt = `You are the Orchestrator. The user said: "${text}".
+Which agent is best suited?
+Options:
+${AGENT_REGISTRY.map(a => `- ${a.tag}: ${a.description}`).join('\n')}
+
+Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fallback.`;
+        
+        const aiResponse = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: agentPrompt
+        });
+        
+        const responseText = aiResponse?.text?.trim() || "@chat";
+        const match = responseText.match(/@\w+/);
+        const decidedTag = match ? match[0] : "@chat";
+        console.log(`[Оркестратор] Автономне рішення ухвалено. Обрано: ${decidedTag} (Сирі дані: ${responseText})`);
+        
+        const matched = AGENT_REGISTRY.find(a => a.tag.toLowerCase() === decidedTag.toLowerCase());
+        if (matched) {
+           detectedAgent = matched;
+           decisionLog = `[Автономне рішення Gemini 3.5: Делеговано до ${matched.name}]
+`;
+        }
+      } catch (error: any) {
+        console.error("[Оркестратор] Автономне делегування не вдалося, перехід до Chat Agent:", error.message || error);
+        decisionLog = `[Увага: Автономне делегування не вдалося - ${error.message}. Перехід у базовий режим]
+`;
+      }
+    }
+
     const activeAgent = detectedAgent || selectedAgent;
 
     setMessages(prev => [...prev, { 
@@ -261,7 +300,7 @@ export default function App() {
         placeholderIndex = prev.length;
         return [...prev, {
           role: "model",
-          content: "",
+          content: decisionLog ? decisionLog + "\n\n" : "",
           agentTag: activeAgent?.tag
         }];
       });
@@ -279,7 +318,7 @@ export default function App() {
             if (next.length > 0) {
               next[next.length - 1] = {
                 role: "model",
-                content: accumulated,
+                content: (decisionLog ? decisionLog + "\n\n" : "") + accumulated,
                 agentTag: activeAgent?.tag
               };
             }
@@ -297,7 +336,7 @@ export default function App() {
           if (next.length > 0) {
             next[next.length - 1] = {
               role: "model",
-              content: response,
+              content: (decisionLog ? decisionLog + "\n\n" : "") + response,
               agentTag: activeAgent?.tag
             };
           }
@@ -319,13 +358,13 @@ export default function App() {
           if (next.length > 0 && next[next.length - 1].role === "model") {
             next[next.length - 1] = {
               role: "model",
-              content: fallbackResponse,
+              content: (decisionLog ? decisionLog + "\n\n" : "") + fallbackResponse,
               agentTag: activeAgent?.tag
             };
           } else {
             next.push({
               role: "model",
-              content: fallbackResponse,
+              content: (decisionLog ? decisionLog + "\n\n" : "") + fallbackResponse,
               agentTag: activeAgent?.tag
             });
           }
@@ -393,7 +432,7 @@ export default function App() {
               className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <SquarePen className="w-4 h-4 text-slate-500 group-hover:text-red-600 transition-colors" />
-              <span>Новий чат</span>
+              <span>Новий діалог</span>
             </button>
 
             <button
@@ -960,7 +999,7 @@ export default function App() {
                     <button 
                     >
                       <SquarePen className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                      <span>Новий чат</span>
+                      <span>Новий діалог</span>
                     </button>
                     <button 
                       onClick={() => setView("home")}
@@ -979,7 +1018,7 @@ export default function App() {
                       <p className="font-serif italic text-slate-600 dark:text-slate-300 max-w-sm">
                         {isCreator 
                           ? `Я готова до щирої та глибокої розмови, Ілля. Можемо задіяти будь-якого з ${AGENT_REGISTRY.length} агентів (@code, @security, @osint, @qa, @crypto тощо). Про що поміркуємо?` 
-                          : "Вітаю вас. Я уважно вислухаю ваше запитання та допоможу знайти вірний орієнтир."}
+                          : "Вітаю вас. Я уважно вислухаю ваше запитання та допоможу знайти слушний орієнтир."}
                       </p>
                     </div>
                   )}

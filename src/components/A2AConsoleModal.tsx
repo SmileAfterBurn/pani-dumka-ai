@@ -1079,7 +1079,7 @@ export const A2AConsoleModal: React.FC<A2AConsoleModalProps> = ({
                     </div>
 
                     <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                      <div className="text-[10px] uppercase font-bold text-slate-400">GC Pressure Level</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Рівень навантаження GC</div>
                       <div className={`text-xs font-bold font-mono mt-1.5 px-2 py-0.5 rounded-full inline-block ${
                         heapStats.gcPressureLevel.includes("LOW")
                           ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"

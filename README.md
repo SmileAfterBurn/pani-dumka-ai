@@ -75,7 +75,15 @@ npm run start
 ```
 *The application will be available at `http://localhost:3000`.*
 
-### 4. Deploying to Google Cloud Run
+### 4. MCP Integrations (Model Context Protocol)
+
+The ecosystem is built to natively consume external capabilities via MCP. For example, to arm the **Mcp Agent (@mcp)** with the official Google Developer Knowledge base, register the HTTP transport endpoint in your CLI environment:
+
+```bash
+gemini mcp add -t http -H "X-Goog-Api-Key: YOUR_API_KEY" google-developer-knowledge https://developerknowledge.googleapis.com/mcp --scope user
+```
+
+### 5. Deploying to Google Cloud Run
 This project is container-ready. 
 1. Authenticate with Google Cloud: `gcloud auth login`
 2. Set your project: `gcloud config set project [pani-dumka-01]`

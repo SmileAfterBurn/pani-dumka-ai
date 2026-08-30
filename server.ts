@@ -10,20 +10,34 @@ import { listEmails, readEmail, sendEmail } from "./src/services/gmail";
 import { mcpSchemaToGeminiSchema } from "./mcp_mapper";
 
 
+
+
+function getGoogleGenAIClient() {
+  if (process.env.GOOGLE_GENAI_USE_ENTERPRISE === 'True' || process.env.GOOGLE_CLOUD_PROJECT) {
+    console.log("[Бекенд] Використовується конфігурація Vertex AI (Enterprise).");
+    return new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT,
+      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+  } else {
+    console.log("[Бекенд] Використовується стандартна конфігурація Gemini API.");
+    return new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+  }
+}
+
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
   
   app.use(express.json({ limit: '50mb' }));
 
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
-  });
+  const ai = getGoogleGenAIClient();
 
   // API route for transcription using gemini-3.5-transcribe
   app.post("/api/transcribe", async (req, res) => {
@@ -83,7 +97,7 @@ async function startServer() {
           parameters: mcpSchemaToGeminiSchema(t.inputSchema)
         });
       }
-      console.log(`Loaded ${mcpFunctionDeclarations.length} MCP tools.`);
+      console.log(`[Бекенд] Успішно завантажено ${mcpFunctionDeclarations.length} MCP інструментів.`);
     } catch (e) {
       console.error("Failed to load MCP tools:", e);
     }
@@ -592,8 +606,8 @@ async function startServer() {
 
   // Helper for generating content with resilient model fallback and exponential retry
   async function generateContentWithFallback(aiClient: GoogleGenAI, initialParams: any) {
-    const fallbackModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
-    const requestedModel = initialParams.model || "gemini-3.7-flash";
+    const fallbackModels = ["gemini-3.5-flash", "gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
+    const requestedModel = initialParams.model || "gemini-3.5-flash";
     
     // Ensure unique ordered list starting with the requested model
     const modelsToTry = [
@@ -648,7 +662,7 @@ async function startServer() {
       const response = await generateContentWithFallback(ai, params);
       res.json({ text: response.text || "" });
     } catch (error: any) {
-      console.error("Generate error:", error);
+      console.error("[Бекенд] Помилка генерації:", error);
       res.status(500).json({ error: error?.message || "Generate error occurred" });
     }
   });
@@ -681,7 +695,7 @@ async function startServer() {
       
       res.json({ text: response.text || "" });
     } catch (error: any) {
-      console.error("Chat error:", error);
+      console.error("[Бекенд] Помилка діалогу:", error);
       res.status(500).json({ error: error?.message || "Chat error occurred" });
     }
   });
@@ -764,7 +778,7 @@ async function startServer() {
 
   app.post("/api/image", async (req, res) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = getGoogleGenAIClient();
       const { prompt } = req.body;
       
       const response = await ai.models.generateContent({
@@ -800,7 +814,7 @@ async function startServer() {
   });
   app.post("/api/music", async (req, res) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = getGoogleGenAIClient();
       const { prompt, isPro } = req.body;
       
       const model = isPro ? "lyria-3-pro-preview" : "lyria-3-clip-preview";
@@ -844,7 +858,7 @@ async function startServer() {
   }
 
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[Бекенд] Сервер Оркестратора запущено на http://localhost:${PORT}`);
   });
 }
 

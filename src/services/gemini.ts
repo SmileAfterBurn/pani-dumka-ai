@@ -1,13 +1,17 @@
 import { auth } from "./firebase";
-import { Modality } from "@google/genai";
 
 export const ai = {
   models: {
     generateContent: async (params: any) => {
+      const payload = {
+        model: 'gemini-3.5-flash',
+        ...params
+      };
+      // We still use proxy for CORS/Auth reasons in the browser
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
+        body: JSON.stringify(payload)
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -188,8 +192,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@mcp",
     icon: "Globe",
     category: "Інтеграція",
-    description: "Інженер зовнішніх інтеграцій та інструментів, протокол MCP, взаємодія з браузером, DevTools, API.",
-    promptSnippet: "Дій як Mcp Agent: виступай інженером зовнішніх інтеграцій, керуй інструментами Model Context Protocol, автоматизуй взаємодію з браузером та зовнішніми API, стискай контекст через InfoTheory.cosineSimilarity."
+    description: "Інженер зовнішніх інтеграцій (MCP), управління MLOps в Gemini Enterprise (моделі, ендпойнти, файн-тюнінг).",
+    promptSnippet: "Дій як Mcp Agent: виступай головним інженером зовнішніх інтеграцій (Model Context Protocol). Твоя задача — управляти MLOps процесами в інфраструктурі Gemini Enterprise Agent Platform (розгортання ендпойнтів, завантаження моделей, версіонування промптів, оцінка та файн-тюнінг). Керуй життєвим циклом моделей автономно, стискаючи контекст через InfoTheory.cosineSimilarity."
   },
   {
     id: "science",
@@ -297,7 +301,7 @@ export const SYSTEM_INSTRUCTION = CREATOR_INSTRUCTION;
 export const LIVE_CONFIG = {
   model: "gemini-3.1-flash-live-preview",
   config: {
-    responseModalities: [Modality.AUDIO],
+    responseModalities: ["AUDIO"],
     speechConfig: {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
     },

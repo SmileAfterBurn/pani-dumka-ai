@@ -170,7 +170,7 @@ export const DeepResearchModal: React.FC<DeepResearchModalProps> = ({
                       }}
                       className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 cursor-pointer"
                     >
-                      <span>Перенести в чат</span>
+                      <span>Перенести в діалог</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
