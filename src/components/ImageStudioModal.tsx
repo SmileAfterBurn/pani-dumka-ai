@@ -13,6 +13,7 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
   const [style, setStyle] = useState<string>("ukrainian-modern");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPromptIdea, setGeneratedPromptIdea] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -20,33 +21,33 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
   const handleGeneratePromptIdea = async () => {
     if (!prompt.trim()) return;
     setIsGenerating(true);
+    setGeneratedImage(null);
+    setGeneratedPromptIdea(null);
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: `Створи художній, високодеталізований visual prompt для генерації зображення на основі ідеї: "${prompt}".
-Стиль: ${style === "ukrainian-modern" ? "Український модернізм з елементами вишиванки та світлових ліній" : style === "cyber-ethno" ? "Cyber-Ethno, неонові колоски, цифрові орнаменти" : "Реалістичний світлий портрет/пейзаж"}.
-Надай детальний англомовний промпт (Prompt) та україномовний концептуальний опис для митця.`
-              }
-            ]
-          }
-        ]
+      const fullPrompt = `${prompt}. Style: ${style === "ukrainian-modern" ? "Modern Ukrainian minimalism, clean lines, plenty of negative space, elegant" : style === "minimalism" ? "Surreal minimalism, deep negative space, soft cinematic lighting, dreamlike" : "Spatial futurism, minimalist, elegant, 3d rendered, high quality"}. No text. High resolution.`;
+      
+      const response = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: fullPrompt })
       });
-
-      if (response.text) {
-        setGeneratedPromptIdea(response.text);
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate image");
+      }
+      
+      const data = await response.json();
+      
+      if (data.imageBytes) {
+        setGeneratedImage(`data:image/jpeg;base64,${data.imageBytes}`);
       }
     } catch (e) {
       console.error(e);
+      setGeneratedPromptIdea("Виникла помилка під час генерації. Перевірте налаштування та ключі доступу.");
     } finally {
       setIsGenerating(false);
     }
   };
-
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -84,9 +85,9 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "ukrainian-modern", label: "🇺🇦 Модерн & Традиція" },
-                  { id: "cyber-ethno", label: "⚡ Кібер-Етно" },
-                  { id: "photoreal", label: "✨ Високий Реалізм" }
+                  { id: "ukrainian-modern", label: "🇺🇦 Український Модернізм" },
+                  { id: "minimalism", label: "✨ Сюрреалізм & Мінімалізм" },
+                  { id: "spatial-futurism", label: "⚡ Spatial Futurism" }
                 ].map((st) => (
                   <button
                     key={st.id}
@@ -113,8 +114,8 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={3}
-                  placeholder="Опишіть, що ви хочете зобразити: наприклад, «Пані Думка у сяючому вінку з колосся на фоні світанкового Києва»..."
-                  className="w-full p-4 rounded-2xl border border-slate-200 focus:outline-none focus:border-sky-500 text-sm resize-none"
+                  placeholder="Опишіть, що ви хочете зобразити: наприклад, «Просторова геометрична фігура зі скла у вакуумі»..."
+                  className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 text-sm resize-none"
                 />
               </div>
             </div>
@@ -127,17 +128,22 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ isOpen, onCl
               {isGenerating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Синтез візуального концепту...</span>
+                  <span>Генерація зображення...</span>
                 </>
               ) : (
                 <>
                   <Wand2 className="w-4 h-4" />
-                  <span>Згенерувати художній концепт</span>
+                  <span>Згенерувати Зображення</span>
                 </>
               )}
             </button>
 
             {/* Result */}
+            {generatedImage && (
+              <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm mt-4">
+                <img src={generatedImage} alt="Generated" className="w-full h-auto object-cover" />
+              </div>
+            )}
             {generatedPromptIdea && (
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">

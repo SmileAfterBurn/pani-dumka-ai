@@ -38,7 +38,7 @@ export const DeepResearchModal: React.FC<DeepResearchModalProps> = ({
       }, 3000);
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.7-flash",
         contents: [
           {
             role: "user",

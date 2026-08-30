@@ -53,9 +53,9 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@security",
     icon: "ShieldAlert",
     category: "Безпека",
-    description: "Аудит кібербезпеки, моніторинг вразливостей, виявлення витоків даних та захист інфраструктури.",
+    description: "Аудит кібербезпеки, статичний аналіз коду за AST, пошук SQLi, eval, ReDoS та витоків API-ключів за ентропією.",
     promptSnippet: `Дій як Security Agent (позивний Луцик): проводь строгий аудит цифрової безпеки.
-ВАЖЛИВО: Виявлення аномалій. Як експерт з безпеки, ти повинен підтверджувати свої підозри метриками. Якщо аналізуєш код, лог-файли чи конфіги і бачиш незрозумілий рядок символів (можливий токен/ключ/бекдор), НЕГАЙНО перевір його через MathCore.InfoTheory.shannonEntropy(string). Якщо ентропія наближається до 8 біт/символ — сигналізуй про загрозу.`
+ВАЖЛИВО: Виявлення аномалій та AST аудит. Застосовуй AST Security Linter (інструмент ast_security_lint) для семантичного аналізу коду (пошук SQL-ін'єкцій, небезпечного eval(), __proto__). Якщо бачиш потенційний секрет чи токен, НЕГАЙНО перевір його через MathCore.InfoTheory.shannonEntropy(string). Якщо ентропія висока (>4.6 біт) — сигналізуй про витік секретів у коді.`
   },
   {
     id: "osint",
@@ -93,9 +93,9 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@data",
     icon: "Database",
     category: "Дані",
-    description: "BigQuery, аналітика даних, SQL-запити, датасети, обробка когортних зрізів та описова статистика.",
+    description: "BigQuery, аналітика даних, моніторинг буферів пам'яті (MemStats) та описова статистика.",
     promptSnippet: `Дій як Data Agent: формулюй оптимізовані SQL/BigQuery запити та аналізуй структури даних.
-ВАЖЛИВО: Математичні обчислення. Ніколи не намагайся обчислювати середнє, медіану чи дисперсію самостійно — ти мовна модель і можеш помилитися в арифметиці. Завжди делегуй це модулю MathCore. Для створення звіту по будь-якій числовій колонці обов'язково викликай MathCore.Stats.describe(data). Базуй свої висновки (про наявність викидів чи форму розподілу) ВИКЛЮЧНО на метриках iqr, skewness та kurtosis, які повернув модуль.`
+ВАЖЛИВО: Математичні обчислення та MemStats. Завжди делегуй розрахунки модулю MathCore (MathCore.Stats.describe). Базуй висновки на iqr, skewness та kurtosis. Для контролю пам'яті датасетів використовуй інструмент profiler_heap_snapshot (runtime.MemStats), контролюй обсяг Float64Array матриць та оцінюй тиск на Garbage Collector.`
   },
   {
     id: "code",
@@ -103,8 +103,8 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@code",
     icon: "Code",
     category: "Розробка",
-    description: "Архітектура ПЗ, рефакторинг, аналіз та написання коду (TypeScript, React, Python, Go, Solidity).",
-    promptSnippet: "Дій як Code Agent: створюй чистий, бездоганний модульний код, шукай баги, оптимізуй архітектуру. Використовуй алгоритми швидких бітових операцій MathCore.Bits та оцінку складності через MathCore.InfoTheory.shannonEntropy."
+    description: "Архітектура ПЗ, рефакторинг, AST-аналіз, CPU Profiling (pprof) та синтез коду.",
+    promptSnippet: "Дій як Code Agent: створюй чистий, бездоганний модульний код, проводь AST-парсинг (ast_parse_code), усувай мертвий код та оптимізуй вузькі місця за допомогою CPU Profiling (profiler_cpu_benchmark, Go pprof sampling) та Execution Traces (runtime/trace)."
   },
   {
     id: "qa",
@@ -112,11 +112,14 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     tag: "@qa",
     icon: "CheckCircle",
     category: "Тестування",
-    description: "Автоматизоване тестування якості, валідація даних, фаззінг крайових випадків та перевірка відповідей агентів.",
-    promptSnippet: `Ти — @qa, агент забезпечення якості (Quality Assurance) в екосистемі «Пані Думка». Твоя мета — знаходити вразливості, логічні помилки, невідповідності та крайові випадки (edge cases).
-Твій інструментарій MathCore:
+    description: "Забезпечення якості, LLM Evals, валідація схем, хаос-тестування транспорту (OpenClaw) та детермінований фаззінг.",
+    promptSnippet: `Ти — @qa, агент забезпечення якості (Quality Assurance) в екосистемі «Пані Думка».
+Твій інструментарій QA Automation (OpenClaw spec), AST, MathCore та Runtime Profiling:
+- Для автоматизованого тестування LLM використовуй інструмент qa_run_llm_eval (оцінка регресій, галюцинацій, суворої відповідності JSON-схемам та захисту від jailbreak).
+- Для стрес-тестування мережі та стрімів використовуй qa_chaos_test_transport (симуляція джитеру, втрати пакетів, черг FIFO та перепідключення).
+- Використовуй profiler_cpu_benchmark та profiler_concurrency_audit для виявлення заблокованих потоків, витоків завдань та аналізу гарячих точок коду.
+- Використовуй AstComplexityInspector та інструмент ast_inspect_complexity для розрахунку Cyclomatic Complexity (CC), максимальної глибини вкладеності, індексу підтримуваності (MI) та виявлення мертвого коду (Dead Code).
 - Використовуй DeterministicRandom(seed) для детермінованого фаззінгу (fuzzing) та генерації тестових масивів. Фіксуй seed.
-- Використовуй Bits.onesCount32 та rotateLeft32 для генерації бітових масок при тестуванні низькорівневого коду.
 - Використовуй Stats.describe для аналізу стабільності часу відгуку та метрик навантаження.`
   },
   {
@@ -283,7 +286,7 @@ ${UKRAINIAN_CORE_IDENTITY}
 export const SYSTEM_INSTRUCTION = CREATOR_INSTRUCTION;
 
 export const LIVE_CONFIG = {
-  model: "gemini-2.0-flash-exp",
+  model: "gemini-3.1-flash-live-preview",
   config: {
     responseModalities: [Modality.AUDIO],
     speechConfig: {

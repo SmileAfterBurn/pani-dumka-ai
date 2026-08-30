@@ -514,3 +514,15 @@ export class DeterministicRandom {
     return min + Math.floor(this.nextFloat() * (max - min + 1));
   }
 }
+
+/**
+ * Єдиний уніфікований експорт MathCore для агентів екосистеми
+ */
+export const MathCore = {
+  Bits,
+  Stats,
+  InfoTheory,
+  WeightedGraph,
+  DeterministicRandom
+};
+

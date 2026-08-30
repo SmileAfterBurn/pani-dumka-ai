@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Music, Play, Square, Loader2, Sparkles, Download, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { RedThreadDecorator } from './LiveAvatar';
 
 interface MusicStudioModalProps {
   isOpen: boolean;
@@ -106,7 +105,6 @@ export const MusicStudioModal: React.FC<MusicStudioModalProps> = ({ isOpen, onCl
               </button>
             </div>
 
-            <RedThreadDecorator />
 
             <div className="p-6 space-y-6">
               {/* Type selector */}

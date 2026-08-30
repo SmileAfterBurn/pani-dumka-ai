@@ -62,28 +62,26 @@ import {
   detectAgentFromMessage 
 } from "./services/gemini";
 import ReactMarkdown from "react-markdown";
-import { useLiveConversation } from "./hooks/useLiveConversation";
 import { auth, googleProvider, setCachedAccessToken } from "./services/firebase";
 import { signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider, User as FirebaseUser } from "firebase/auth";
-import { LiveAvatar, AvatarEmotion, DumkaAvatarContainer, RedThreadDecorator } from "./components/LiveAvatar";
 import { useGeminiSpeechRecognition } from "./hooks/useGeminiSpeechRecognition";
 import { JournalView } from "./components/JournalView";
 import { CognitiveScannerModal } from "./components/CognitiveScannerModal";
 import { UkrainianOrnament } from "./components/UkrainianOrnament";
 import { PaniDumkaLogo } from "./components/PaniDumkaLogo";
 import { SettingsModal } from "./components/SettingsModal";
-import { ChatHistoryModal } from "./components/ChatHistoryModal";
 import { MusicStudioModal } from "./components/MusicStudioModal";
 import { useChatHistory } from "./hooks/useChatHistory";
 import { Clock } from "lucide-react";
 import { HelpModal } from "./components/HelpModal";
 import { DeepResearchModal } from "./components/DeepResearchModal";
 import { ImageStudioModal } from "./components/ImageStudioModal";
-import { VideoStudioModal } from "./components/VideoStudioModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
 import { GoogleMapsModal } from "./components/GoogleMapsModal";
 import { CollaborativeCanvas } from "./components/CollaborativeCanvas";
 import { PricingModal } from "./components/PricingModal";
+import { A2AConsoleModal } from "./components/A2AConsoleModal";
+import { SessionTransportClient } from "./services/sessionTransport";
 import avatarImg from "./assets/images/pani_dumka_avatar.png";
 
 // Icon mapping helper for agent badges
@@ -147,25 +145,23 @@ export default function App() {
   // Modals state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMusicStudioOpen, setIsMusicStudioOpen] = useState(false);
-  const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false);
   const { sessions, saveSession, deleteSession } = useChatHistory();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isDeepResearchOpen, setIsDeepResearchOpen] = useState(false);
   const [isImageStudioOpen, setIsImageStudioOpen] = useState(false);
-  const [isVideoStudioOpen, setIsVideoStudioOpen] = useState(false);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [isGoogleMapsOpen, setIsGoogleMapsOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isPricingMobile, setIsPricingMobile] = useState(false);
+  const [isA2AConsoleOpen, setIsA2AConsoleOpen] = useState(false);
   const [showOmniTools, setShowOmniTools] = useState(false);
 
   // Settings
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [voiceId, setVoiceId] = useState("XsDwVNgam5laFw4WF7S6"); // Default ElevenLabs voice
   const [creatorForce, setCreatorForce] = useState<boolean | null>(null);
-  const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("neutral");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -227,61 +223,6 @@ export default function App() {
     setInput(text);
   });
 
-  const detectEmotionFromText = (text: string): AvatarEmotion => {
-    const lowercase = text.toLowerCase();
-    
-    // Empathetic
-    const empathyKeywords = ["розумію", "співчуваю", "підтримк", "турбот", "обійм", "поруч", "все буде добре", "не хвилюй", "спокій", "тепло", "любов", "серце", "доля"];
-    if (empathyKeywords.some(keyword => lowercase.includes(keyword))) {
-      return "empathetic";
-    }
-
-    // Happy / Warmth
-    const happyKeywords = ["чудов", "ура", "супер", "клас", "радий", "радію", "успіх", "віта", "посміх", "щаст", "прекрасн", "гарно", "натхненн", "світло"];
-    if (happyKeywords.some(keyword => lowercase.includes(keyword))) {
-      return "happy";
-    }
-
-    // Excited / Breakthrough
-    const excitedKeywords = ["чудово!", "неймовірно", "вау", "дивовижно", "захоплен", "прорив", "перемога", "витвір", "геніальн", "активовано"];
-    if (excitedKeywords.some(keyword => lowercase.includes(keyword))) {
-      return "excited";
-    }
-
-    // Thoughtful / Philosophical
-    const thoughtfulKeywords = ["аналіз", "план", "статт", "кодекс", "закон", "структур", "розглян", "оцін", "юридич", "історі", "пам'ят", "спогад", "мапа", "думк", "мислен", "сковород", "суверенітет", "стратегі", "оркестратор"];
-    if (thoughtfulKeywords.some(keyword => lowercase.includes(keyword))) {
-      return "thoughtful";
-    }
-
-    return "neutral";
-  };
-
-  const { 
-    isConnected, 
-    isConnecting, 
-    error: liveError, 
-    transcript,
-    activeAgent: liveActiveAgent,
-    canvasContent,
-    sendToolResponse,
-    startConversation, 
-    stopConversation 
-  } = useLiveConversation(voiceId);
-
-  useEffect(() => {
-    if (isConnected) {
-      const interval = setInterval(() => {
-        const emotions: AvatarEmotion[] = ['happy', 'thoughtful', 'empathetic'];
-        const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-        setAvatarEmotion(randomEmotion);
-      }, 6000);
-      return () => clearInterval(interval);
-    } else {
-      setAvatarEmotion('neutral');
-    }
-  }, [isConnected]);
-
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend !== undefined ? textToSend : input;
     if (!text.trim()) return;
@@ -303,21 +244,89 @@ export default function App() {
     try {
       const history = messages.map(m => ({
         role: m.role,
-        parts: [{ text: m.content }]
+        content: m.content
       }));
       
       const customInstruction = isCreator ? CREATOR_INSTRUCTION : STANDARD_INSTRUCTION;
-      const response = await chat(text, history, customInstruction, activeAgent);
-      if (response) {
-        setMessages(prev => [...prev, { 
-          role: "model", 
-          content: response,
-          agentTag: activeAgent?.tag 
-        }]);
-        setAvatarEmotion(detectEmotionFromText(response));
+      let streamedResponse = "";
+      
+      // Initialize model message placeholder
+      let placeholderIndex = -1;
+      setMessages(prev => {
+        placeholderIndex = prev.length;
+        return [...prev, {
+          role: "model",
+          content: "",
+          agentTag: activeAgent?.tag
+        }];
+      });
+
+      const transport = SessionTransportClient.getInstance();
+      const response = await transport.startStream(text, {
+        userEmail: user?.email || undefined,
+        customInstruction,
+        selectedAgent: activeAgent,
+        history,
+        onToken: (_token, accumulated) => {
+          streamedResponse = accumulated;
+          setMessages(prev => {
+            const next = [...prev];
+            if (next.length > 0) {
+              next[next.length - 1] = {
+                role: "model",
+                content: accumulated,
+                agentTag: activeAgent?.tag
+              };
+            }
+            return next;
+          });
+        },
+        onDone: (full) => {
+          // Do nothing
+        }
+      });
+
+      if (response && !streamedResponse) {
+        setMessages(prev => {
+          const next = [...prev];
+          if (next.length > 0) {
+            next[next.length - 1] = {
+              role: "model",
+              content: response,
+              agentTag: activeAgent?.tag
+            };
+          }
+          return next;
+        });
       }
     } catch (error) {
       console.error("Chat error:", error);
+      // Clean fallback if error occurs
+      const customInstruction = isCreator ? CREATOR_INSTRUCTION : STANDARD_INSTRUCTION;
+      const history = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.content }]
+      }));
+      const fallbackResponse = await chat(text, history, customInstruction, activeAgent);
+      if (fallbackResponse) {
+        setMessages(prev => {
+          const next = [...prev];
+          if (next.length > 0 && next[next.length - 1].role === "model") {
+            next[next.length - 1] = {
+              role: "model",
+              content: fallbackResponse,
+              agentTag: activeAgent?.tag
+            };
+          } else {
+            next.push({
+              role: "model",
+              content: fallbackResponse,
+              agentTag: activeAgent?.tag
+            });
+          }
+          return next;
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -332,15 +341,13 @@ export default function App() {
     setIsMobileSidebarOpen(false);
   };
 
-  const toggleLive = (useScreenShare = false) => {
-    if (isConnected) {
-      stopConversation();
-      setView("home");
-    } else {
-      setView("live");
-      const customInstruction = isCreator ? CREATOR_INSTRUCTION : STANDARD_INSTRUCTION;
-      startConversation(customInstruction, useScreenShare);
-    }
+
+  const handleLoadSession = (session: any) => {
+    setMessages(session.messages);
+    setActiveSessionId(session.id);
+    setView("chat");
+    setIsChatHistoryOpen(false);
+    setIsMobileSidebarOpen(false);
   };
 
   return (
@@ -383,17 +390,6 @@ export default function App() {
               <SquarePen className="w-4 h-4 text-slate-500 group-hover:text-red-600 transition-colors" />
               <span>Новий чат</span>
             </button>
-            <button
-              onClick={() => {
-                setIsChatHistoryOpen(true);
-                setIsMobileSidebarOpen(false);
-              }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
-            >
-              <Clock className="w-4 h-4 text-slate-500 group-hover:text-indigo-600 transition-colors" />
-              <span>Історія бесід</span>
-            </button>
-
 
             <button
               onClick={() => {
@@ -404,17 +400,6 @@ export default function App() {
             >
               <ImageIcon className="w-4 h-4 text-slate-500 group-hover:text-sky-600 transition-colors" />
               <span>Зображення</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setIsVideoStudioOpen(true);
-                setIsMobileSidebarOpen(false);
-              }}
-              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
-            >
-              <VideoIcon className="w-4 h-4 text-slate-500 group-hover:text-purple-600 transition-colors" />
-              <span>Відео</span>
             </button>
 
             {/* Deep Research (Highlighted pill as in reference design) */}
@@ -441,6 +426,21 @@ export default function App() {
             >
               <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors" />
               <span>Google Workspace</span>
+            </button>
+
+            {/* A2A Protocol & MCP Shared SDK */}
+            <button
+              onClick={() => {
+                setIsA2AConsoleOpen(true);
+                setIsMobileSidebarOpen(false);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800/50 transition-colors flex items-center gap-3 group cursor-pointer shadow-2xs"
+            >
+              <Network className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform" />
+              <div className="flex items-center justify-between flex-1">
+                <span>A2A & MCP Консоль</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200">OpenClaw</span>
+              </div>
             </button>
           </div>
 
@@ -605,6 +605,18 @@ export default function App() {
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
+            {/* A2A & MCP SDK Protocol Console Button */}
+            <button
+              type="button"
+              onClick={() => setIsA2AConsoleOpen(true)}
+              className="px-3 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-[11px] font-mono tracking-wider font-semibold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Відкрити архітектурну консоль A2A та MCP SDK"
+            >
+              <Network className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">A2A & MCP SDK</span>
+              <span className="sm:hidden">A2A</span>
+            </button>
+
             {/* Agents Orchestrator Selector Toggle */}
             <button
               type="button"
@@ -736,16 +748,6 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 className="flex-1 flex flex-col items-center justify-center w-full max-w-3xl my-auto space-y-6 sm:space-y-8"
               >
-                {/* Upper Central Living Avatar with Warm Halo Ring */}
-                <div className="relative group z-10">
-                  <LiveAvatar 
-                    state="idle"
-                    emotion={avatarEmotion}
-                    size="xl"
-                    agentName={selectedAgent ? selectedAgent.name : "Пані Думка"}
-                  />
-                </div>
-
                 {/* Ukrainian Traditional Cross-Stitch Embroidery Ribbon */}
                 <UkrainianOrnament variant="divider" className="max-w-md my-0 opacity-80" />
 
@@ -810,16 +812,6 @@ export default function App() {
                             </button>
                             <button
                               onClick={() => {
-                                setIsVideoStudioOpen(true);
-                                setShowOmniTools(false);
-                              }}
-                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700 dark:hover:text-purple-400 flex items-center gap-2.5"
-                            >
-                              <VideoIcon className="w-4 h-4 text-purple-600" />
-                              <span>Студія відео</span>
-                            </button>
-                            <button
-                              onClick={() => {
                                 setIsWorkspaceOpen(true);
                                 setShowOmniTools(false);
                               }}
@@ -827,6 +819,16 @@ export default function App() {
                             >
                               <Globe className="w-4 h-4 text-blue-600" />
                               <span>Google Workspace</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsA2AConsoleOpen(true);
+                                setShowOmniTools(false);
+                              }}
+                              className="w-full p-2 rounded-xl text-left text-xs font-semibold text-indigo-800 dark:text-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400 flex items-center gap-2.5"
+                            >
+                              <Network className="w-4 h-4 text-indigo-600" />
+                              <span>A2A & MCP SDK Консоль</span>
                             </button>
                           </motion.div>
                         )}
@@ -866,32 +868,6 @@ export default function App() {
                           <Mic className="w-4 h-4" />
                         </button>
                       )}
-
-                      {/* Screen Share Button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleLive(true)}
-                        className="h-9 px-3.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer group"
-                        title="Живий діалог з показом екрану (для VisionAgent)"
-                      >
-                        <VideoIcon className="w-4 h-4 text-white" />
-                        <span className="text-xs font-semibold hidden sm:inline">Екран</span>
-                      </button>
-
-                      {/* Live Call Voice Waveform Button (Matched with reference) */}
-                      <button
-                        type="button"
-                        onClick={() => toggleLive(false)}
-                        className="h-9 px-3.5 rounded-full bg-slate-950 hover:bg-slate-800 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer group"
-                        title="Розпочати живий голосовий діалог"
-                      >
-                        <div className="flex items-center gap-0.5 h-3">
-                          <span className="w-0.5 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
-                          <span className="w-0.5 h-3 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
-                          <span className="w-0.5 h-2.5 bg-white rounded-full animate-bounce" />
-                        </div>
-                        <span className="text-xs font-semibold hidden sm:inline">Живий голос</span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -977,15 +953,6 @@ export default function App() {
 
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => setIsChatHistoryOpen(true)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Історія</span>
-                    </button>
-                    <button 
-                      onClick={handleStartNewChat}
-                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
                     >
                       <SquarePen className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                       <span>Новий чат</span>
@@ -1104,120 +1071,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {/* =================================================================
-                LIVE VOICE VIEW (Direct acoustic streaming with Pani Dumka)
-               ================================================================= */}
-            {view === "live" && (
-              <motion.div 
-                key="live"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="flex flex-col items-center gap-8 w-full max-w-lg my-auto relative"
-              >
-                {isConnected && (
-                  <div className="absolute -top-6 right-0 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-2 z-20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Кінетичний зір
-                  </div>
-                )}
-                <DumkaAvatarContainer 
-                  isConnected={isConnected}
-                  isConnecting={isConnecting}
-                  emotion={avatarEmotion} 
-                  size="xl"
-                  agentName={selectedAgent ? selectedAgent.name : "Пані Думка"}
-                />
-
-                <div className="text-center space-y-6 w-full">
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-serif font-medium text-slate-900">
-                      {isConnecting ? "Синхронізація сенсорів..." : "Жива присутність"}
-                    </h2>
-                    <p className="text-slate-500 italic text-sm">
-                      {isConnected ? "Я вас бачу і чую. Говоріть природно." : "Чекаємо на встановлення потоку..."}
-                    </p>
-                  </div>
-
-                  {isConnected && transcript && (
-                    <div className="w-full bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-4 shadow-sm h-32 overflow-y-auto flex flex-col justify-end text-left">
-                      <p className="text-sm text-slate-700 italic font-serif">
-                        {transcript}
-                      </p>
-                    </div>
-                  )}
-
-                  {liveActiveAgent && (
-                    <div className="w-full bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col gap-3 text-left animate-in fade-in slide-in-from-bottom-2 shadow-sm">
-                      <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-bold">Оркестрація</div>
-                      
-                      <div className="flex items-center gap-2">
-                        {/* Root Node */}
-                        <div className="flex flex-col items-center gap-1">
-                           <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center border border-red-200">
-                              <Bot className="w-4 h-4 text-red-600" />
-                           </div>
-                           <span className="text-[9px] font-bold text-slate-500">Оркестратор</span>
-                        </div>
-                        
-                        {/* Edge */}
-                        <div className="flex-1 h-px bg-slate-200 relative flex items-center justify-center">
-                           <div className="absolute flex gap-1">
-                             <span className="w-1 h-1 rounded-full bg-red-400 animate-ping [animation-delay:-0.3s]" />
-                             <span className="w-1 h-1 rounded-full bg-red-400 animate-ping [animation-delay:-0.15s]" />
-                             <span className="w-1 h-1 rounded-full bg-red-400 animate-ping" />
-                           </div>
-                        </div>
-
-                        {/* Agent Node */}
-                        <div className="flex flex-col items-center gap-1">
-                           <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center border border-amber-200 ring-2 ring-amber-400 ring-offset-2 animate-pulse">
-                              <Network className="w-4 h-4 text-amber-600" />
-                           </div>
-                           <span className="text-[9px] font-bold text-amber-700">{liveActiveAgent.name}</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-white rounded-lg p-2 border border-slate-100 text-xs text-slate-600 italic">
-                         <span className="font-semibold text-slate-700 not-italic mr-1">Завдання:</span>
-                         {liveActiveAgent.task}
-                      </div>
-                    </div>
-                  )}
-
-                  {isConnected && (
-                    <CollaborativeCanvas externalContent={canvasContent} />
-                  )}
-
-                  {liveError && (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 px-4 py-2 rounded-full text-sm">
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span>{liveError}</span>
-                      </div>
-                      <button 
-                        onClick={() => startConversation(isCreator ? CREATOR_INSTRUCTION : STANDARD_INSTRUCTION)}
-                        className="text-xs uppercase tracking-widest text-red-600 font-bold hover:text-red-700 transition-colors"
-                      >
-                        Спробувати знову
-                      </button>
-                    </div>
-                  )}
-
-                  <button 
-                    onClick={() => toggleLive()}
-                    className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/25 hover:bg-red-700 transition-all active:scale-95 mx-auto cursor-pointer"
-                    title="Завершити розмову"
-                  >
-                    <PhoneOff className="w-6 h-6 text-white" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* =================================================================
-                JOURNAL / CHRONICLES VIEW
-               ================================================================= */}
+            {/* =================================================================                JOURNAL / CHRONICLES VIEW               ================================================================= */}
             {view === "journal" && (
               <div className="w-full max-w-3xl relative my-auto">
                 <button 
@@ -1253,7 +1107,6 @@ export default function App() {
         isCreator={isCreator}
         onToggleCreator={(val) => {
           setCreatorForce(val);
-          if (val) setAvatarEmotion("excited");
         }}
         voiceSpeed={voiceSpeed}
         voiceId={voiceId}
@@ -1281,16 +1134,13 @@ export default function App() {
       />
 
       {/* Image Creation Studio Modal */}
+
       <ImageStudioModal 
         isOpen={isImageStudioOpen}
         onClose={() => setIsImageStudioOpen(false)}
       />
 
       {/* Video Studio Modal */}
-      <VideoStudioModal 
-        isOpen={isVideoStudioOpen}
-        onClose={() => setIsVideoStudioOpen(false)}
-      />
 
       {/* Google Workspace Modal */}
       <GoogleMapsModal 
@@ -1310,7 +1160,19 @@ export default function App() {
         onSuccess={(verified) => {
           if (verified) {
             setCreatorForce(true);
-            setAvatarEmotion("excited");
+          }
+        }}
+      />
+
+      {/* Agent-to-Agent (A2A) & Shared MCP SDK Architecture Console */}
+      <A2AConsoleModal 
+        isOpen={isA2AConsoleOpen}
+        onClose={() => setIsA2AConsoleOpen(false)}
+        onSelectAgent={(agentId) => {
+          const matched = AGENT_REGISTRY.find(a => a.id === agentId || a.tag === agentId);
+          if (matched) {
+            setSelectedAgent(matched);
+            setView("chat");
           }
         }}
       />

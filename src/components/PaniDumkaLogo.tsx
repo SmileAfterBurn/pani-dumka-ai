@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import avatarImg from "../assets/images/pani-dumka-ai-logo-widget.png";
+import React from "react";
 import { Sparkles } from "lucide-react";
 
 interface PaniDumkaLogoProps {
@@ -8,43 +7,32 @@ interface PaniDumkaLogoProps {
 }
 
 export const PaniDumkaLogo: React.FC<PaniDumkaLogoProps> = ({ className = "", onClick }) => {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <div 
       onClick={onClick}
       className={`flex items-center gap-2.5 select-none cursor-pointer group ${className}`}
       id="pani-dumka-header-logo"
     >
-      <div className="relative">
-        <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-red-500/30 shadow-xs group-hover:border-red-500 transition-colors bg-slate-900 flex items-center justify-center">
-          {!imgError ? (
-            <img 
-              src={avatarImg} 
-              alt="Пані Думка" 
-              referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
-              className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-110"
-            />
-          ) : (
-            <Sparkles className="w-5 h-5 text-amber-400" />
-          )}
-        </div>
-        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+      <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm group-hover:border-indigo-300 dark:group-hover:border-indigo-600 transition-colors flex-shrink-0 relative">
+        <img 
+          src="/pani_dumka_avatar.png" 
+          alt="Пані Думка" 
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/20 to-transparent mix-blend-overlay"></div>
       </div>
-
-      <div className="flex flex-col">
+      <div className="flex flex-col justify-center">
         <div className="flex items-center gap-1.5">
-          <span className="font-serif font-bold text-base text-slate-900 tracking-tight group-hover:text-red-700 transition-colors leading-none">
+          <span className="font-serif font-bold text-base text-slate-900 dark:text-slate-100 tracking-tight transition-colors leading-none">
             Пані Думка
           </span>
-          <span className="text-[10px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200/60 leading-none">
-            ШІ
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <Sparkles className="w-2.5 h-2.5 text-indigo-500" />
+          <span className="text-[10px] text-slate-500 font-medium tracking-wide uppercase">
+            Оркестратор
           </span>
         </div>
-        <span className="text-[10.5px] text-slate-500 font-medium tracking-normal mt-0.5">
-          Оркестратор
-        </span>
       </div>
     </div>
   );

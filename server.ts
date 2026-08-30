@@ -24,7 +24,7 @@ async function startServer() {
     }
   });
 
-  // API route for transcription using gemini-3.6-flash
+  // API route for transcription using gemini-3.5-transcribe
   app.post("/api/transcribe", async (req, res) => {
     try {
       const { audioBase64, mimeType } = req.body;
@@ -33,16 +33,20 @@ async function startServer() {
       }
       
       const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: [
-          {
-            inlineData: {
-              data: audioBase64,
-              mimeType: mimeType || "audio/webm",
+        model: "gemini-3.5-transcribe",
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: audioBase64,
+                mimeType: mimeType || "audio/webm",
+              }
+            },
+            {
+              text: "Будь ласка, точно транскрибуй цей аудіозапис українською мовою."
             }
-          },
-          "Please transcribe the following audio in Ukrainian."
-        ]
+          ]
+        }
       });
       
       res.json({ text: response.text });
@@ -585,33 +589,78 @@ async function startServer() {
 
 
 
+  // Helper for generating content with resilient model fallback and exponential retry
+  async function generateContentWithFallback(aiClient: GoogleGenAI, initialParams: any) {
+    const fallbackModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
+    const requestedModel = initialParams.model || "gemini-3.7-flash";
+    
+    // Ensure unique ordered list starting with the requested model
+    const modelsToTry = [
+      requestedModel,
+      ...fallbackModels.filter(m => m !== requestedModel)
+    ];
+
+    let lastError: any = null;
+
+    for (const modelName of modelsToTry) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const currentParams = { ...initialParams, model: modelName };
+          if (currentParams.config) {
+            currentParams.config = { ...currentParams.config };
+            if (modelName !== "gemini-3.7-flash" && currentParams.config.thinkingConfig) {
+              delete currentParams.config.thinkingConfig;
+            }
+          }
+
+          const response = await aiClient.models.generateContent(currentParams);
+          return response;
+        } catch (err: any) {
+          lastError = err;
+          const isUnavailable = err?.status === 503 || 
+                                err?.message?.includes("503") || 
+                                err?.message?.includes("high demand") || 
+                                err?.message?.includes("UNAVAILABLE") ||
+                                err?.message?.includes("429");
+          
+          if (isUnavailable && attempt === 0) {
+            await new Promise(r => setTimeout(r, 600));
+            continue;
+          }
+          if (isUnavailable) {
+            break; 
+          }
+          throw err;
+        }
+      }
+    }
+    throw lastError;
+  }
+
   app.post("/api/generate", async (req, res) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const params = req.body;
+      const params = { ...req.body };
+      if (!params.model || params.model === "gemini-3.6-flash" || params.model.includes("2.0") || params.model.includes("1.5")) {
+        params.model = "gemini-3.7-flash";
+      }
       
-      const response = await ai.models.generateContent(params);
-      
-      res.json({ text: response.text });
-    } catch (error) {
+      const response = await generateContentWithFallback(ai, params);
+      res.json({ text: response.text || "" });
+    } catch (error: any) {
       console.error("Generate error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error?.message || "Generate error occurred" });
     }
   });
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const { message, history, customInstruction, selectedAgent } = req.body;
-      
-      const { userEmail } = req.body;
+      const { message, history, customInstruction, selectedAgent, userEmail } = req.body;
       const isIllia = userEmail === "illia.smileafterburn@gmail.com";
-      let model = "gemini-3.6-flash";
-      let config = {};
+      const model = "gemini-3.7-flash";
+      const config: any = {};
       
       if (isIllia) {
-        model = "gemini-3.7-flash";
-        config = { thinkingConfig: { thinkingBudget: 1024 } };
+        config.thinkingConfig = { thinkingBudget: 1024 };
       }
       let effectiveInstruction = customInstruction || "";
 
@@ -619,7 +668,7 @@ async function startServer() {
         effectiveInstruction += `\n\n[АКТИВНИЙ ПІД-АГЕНТ: ${selectedAgent.name}]\n${selectedAgent.promptSnippet}`;
       }
       
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithFallback(ai, {
         model,
         contents: [...(history || []), { role: "user", parts: [{ text: message }] }],
         config: {
@@ -629,13 +678,125 @@ async function startServer() {
         },
       });
       
-      res.json({ text: response.text });
-    } catch (error) {
+      res.json({ text: response.text || "" });
+    } catch (error: any) {
       console.error("Chat error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error?.message || "Chat error occurred" });
     }
   });
 
+  // Server-Sent Events (SSE) realtime streaming endpoint
+  app.post("/api/stream", async (req, res) => {
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    let sequence = 0;
+    const sendFrame = (type: string, data: any) => {
+      const frame = {
+        type,
+        sessionId: req.body.sessionId || "default-session",
+        sequence: sequence++,
+        timestamp: Date.now(),
+        data
+      };
+      res.write(`data: ${JSON.stringify(frame)}\n\n`);
+    };
+
+    try {
+      const { message, history, customInstruction, selectedAgent, userEmail } = req.body;
+      const isIllia = userEmail === "illia.smileafterburn@gmail.com";
+      const model = "gemini-3.7-flash";
+      const config: any = {};
+      
+      if (isIllia) {
+        config.thinkingConfig = { thinkingBudget: 1024 };
+      }
+      let effectiveInstruction = customInstruction || "";
+
+      if (selectedAgent) {
+        effectiveInstruction += `\n\n[АКТИВНИЙ ПІД-АГЕНТ: ${selectedAgent.name}]\n${selectedAgent.promptSnippet}`;
+      }
+
+      sendFrame("thought", {
+        thoughtText: `Пані Думка оркеструє запит через ${selectedAgent?.name || " Chat Agent"}...`,
+        phase: "analyzing"
+      });
+
+      const response = await generateContentWithFallback(ai, {
+        model,
+        contents: [...(history || []), { role: "user", parts: [{ text: message }] }],
+        config: {
+          systemInstruction: effectiveInstruction,
+          temperature: 0.7,
+          ...config
+        },
+      });
+
+      const fullText = response.text || "";
+      
+      // Stream tokens in high-speed realistic rhythmic chunks
+      const words = fullText.split(/(\s+)/);
+      let accumulated = "";
+
+      for (const word of words) {
+        accumulated += word;
+        sendFrame("token_delta", {
+          token: word,
+          accumulatedLength: accumulated.length,
+          agentTag: selectedAgent?.tag || "@chat"
+        });
+      }
+
+      sendFrame("done", { fullText });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (error: any) {
+      console.error("Stream error:", error);
+      sendFrame("error", { message: error?.message || "Stream error occurred" });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
+  });
+
+  app.post("/api/image", async (req, res) => {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const { prompt } = req.body;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-image',
+        contents: {
+          parts: [{ text: prompt }]
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K"
+          }
+        }
+      });
+      
+      let imageBytes = null;
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          imageBytes = part.inlineData.data;
+          break;
+        }
+      }
+      
+      if (imageBytes) {
+        res.json({ imageBytes });
+      } else {
+        res.status(500).json({ error: "No image generated" });
+      }
+    } catch (error: any) {
+      console.error("Image generation error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate image" });
+    }
+  });
   app.post("/api/music", async (req, res) => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
