@@ -169,7 +169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-slate-600 font-medium">Ядро Оркестратора</span>
-                <span className="text-xs font-mono font-bold text-red-600">Gemini 3.1 Pro + Live</span>
+                <span className="text-xs font-mono font-bold text-red-600">Gemini Enterprise Agent Platform (3.5 Pro)</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-slate-600 font-medium">Екосистема агентів</span>

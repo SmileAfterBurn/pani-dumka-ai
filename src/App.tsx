@@ -201,8 +201,13 @@ export default function App() {
       if (credential?.accessToken) {
         setCachedAccessToken(credential.accessToken);
       }
-    } catch (error) {
+        } catch (error: any) {
       console.error("Login error:", error);
+      if (error.code === 'auth/internal-error' || error.message?.includes('internal-error')) {
+        alert("Помилка авторизації. Якщо ви знаходитесь у прев'ю AI Studio (iframe), будь ласка, відкрийте застосунок у новій вкладці браузера (кнопка ↗️ вгорі справа), оскільки браузери блокують спливаючі вікна авторизації всередині iframe.");
+      } else {
+        alert(`Помилка входу: ${error.message}`);
+      }
     }
   };
 

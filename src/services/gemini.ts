@@ -39,6 +39,15 @@ export const AGENT_REGISTRY: AgentDescriptor[] = [
     promptSnippet: "Дій як Chat Agent: веди глибоку, інтелектуальну, україноцентричну розмову з вишуканою мовною культурою. Застосовуй семантичний аналіз та косинусну схожість MathCore.InfoTheory.cosineSimilarity для контексту."
   },
   {
+    id: "vision",
+    name: "Vision Agent",
+    tag: "@vision",
+    icon: "Image",
+    category: "Медіа",
+    description: "Експерт з аналізу зображень, відео та комп'ютерного зору (Gemini Vision).",
+    promptSnippet: "Дій як Vision Agent: аналізуй зображення, виділяй об'єкти та детально описуй побачене. Звертай увагу на контекст та оптичні характеристики кадру. Використовуй патерни ADK youtube-analyst для довгострокових відео-потоків."
+  },
+  {
     id: "task",
     name: "Task Agent",
     tag: "@task",

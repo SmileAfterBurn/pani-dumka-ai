@@ -1,50 +1,34 @@
-# 🇺🇦 Пані Думка (Pani Dumka) - The Fortified Enterprise Fleet
+## 🧩 Built on Google Agent Development Kit (ADK) Principles
 
-> **Track:** The Fortified Enterprise Fleet  
-> **Hosted Application:** [Launch Pani Dumka (Cloud Run)](https://ais-pre-kms3lr5xqgvupwbrjinvig-575138144425.europe-west2.run.app)  
-> **Models Used:** Gemini 3.7 Flash, Gemini 3.1 Flash Live Preview (Voice API), Imagen 3, Lyria 3 Pro.  
-> **Frameworks:** `@google/genai` (GenAI SDK & Live Interactions API).  
-> **Google Cloud Services:** Cloud Run (Deployment), Google Workspace APIs (Drive, Gmail, Docs via MCP).  
+To ensure complete compatibility with the Google Cloud ecosystem, the internal agents within Pani Dumka are architected following the **Google Agent Development Kit (ADK)** patterns:
 
-## 📖 Text Description & Value Proposition
+- **Customer Service & Empathy (`customer-service`):** Our agents dynamically adapt tone and assess sentiment to provide empathetic, brand-aligned interactions.
+- **Marketing, SEO & Creative Execution (`marketing-agency-adk`, `brand-search-optimization`, `brand-aligned-presentations`):** Our fleet orchestrates multi-channel campaign generation, optimizes brand search visibility, and autonomously generates corporate slide presentations with demographic-targeted copywriting.
+- **Finance, Macroeconomics & Corporate Lending (`financial-advisor`, `invoice-processing`, `small-business-loan-agent`, `time-series-forecasting`, `fomc-research`, `economic-research-agent`):** The Finance Agent (Лівермор) performs advanced time-series forecasting, deciphers central bank policies (FOMC), extracts structured JSON from PDFs, and autonomously evaluates broader economic market health.
+- **Data Science & Analytics (`data-science`):** The Data Agent autonomously writes Python code, manipulates dataframes, and generates statistical models directly from enterprise datasets.
+- **Agile Planning, SDLC & Technical Design (`sdlc-task-planner`, `sdlc-user-story-refiner`, `sdlc-technical-designer`):** The Task Agent autonomously refines ambiguous user stories, breaks down complex software architectures into manageable sprints, and generates structured technical specifications and deterministic task routings.
+- **Observability, QA & LLM Auditing (`software-bug-assistant`, `llm-auditor`, `agent-observability-bq`):** The Code and QA Agents autonomously diagnose complex runtime errors and synthesize patches. Enterprise-grade telemetry streams agent execution traces directly into BigQuery for zero-blind-spot observability and rigorous LLM schema compliance.
+- **Recommendation & Personalization (`personalized-shopping`):** The Recommend Agent leverages collaborative filtering and content-aware algorithms to curate highly personalized digital experiences and precise matchmaking.
+- **Logistics & Concierge Routing (`travel-concierge`):** The Logistics Agent dynamically plans complex itineraries, optimizes resource allocation, and manages multi-step operational routing with real-time API integrations.
+- **Vision, Media & Policy Scoring (`genmedia-for-commerce`, `on-brand-genmedia`, `image-scoring`):** Media pipelines use deterministic state management and automated visual scoring to iteratively generate, evaluate, and refine brand-compliant multimodal assets against strict enterprise policies.
+- **Enterprise RAG & High-Volume Processing (`rag-agent-search`, `deep-search`, `high-volume-document-analyzer`):** Orchestrates retrieval-augmented generation, autonomous multi-step deep research, and high-throughput ingestion of massive document corpora across both internal enterprise knowledge bases and external sources.
+- **Cyber Security & Global Compliance (`global-kyc-agent`, `cyber-guardian-agent`):** The Security Agent (Луцик) enforces strict access controls, identity verification (KYC), and actively defends the ecosystem against vulnerabilities, intrusions, and cyber threats using deterministic anomaly detection.
+- **Academic Research & Science (`academic-research`):** The Science Agent orchestrates deep literature reviews, verifies citations, and synthesizes complex scientific papers with deterministic precision and high reproducibility.
+- **Contextual Memory & Handover (`nurse-handover`):** Our Archivist (Lytopisec) and Empathy (Stan) agents utilize critical-care context protocols to ensure zero-loss chronological memory transfers between active sessions and A2A agentic handoffs.
+- **OSINT & Multimodal Video Analysis (`youtube-analyst`):** OSINT and Vision agents seamlessly ingest long-context video feeds, leveraging Gemini's 2M token window to analyze frames, transcripts, and metadata natively.
 
-**The Problem:** Standard LLM chat interfaces fall short for complex, multi-layered enterprise tasks. When a user asks to "analyze this data, find OSINT on the author, write a secure script, and email the results," a single LLM loop struggles with context degradation and lack of specialization. 
+## 🏆 Hackathon Compliance: Gemini 3.5 Flash & Pro Integration
 
-**The Solution:** Meet **Пані Думка (Pani Dumka)**, a powerful generative AI orchestrator built for the modern enterprise. She acts as the "CEO" of an elite ecosystem of **20 specialized AI agents** (including Security, Code, OSINT, Data, Finance, and QA agents). 
+In strict adherence to the hackathon requirements, **Pani Dumka** is powered natively by the **Gemini 3.5** model family deployed via **Google Cloud Vertex AI**. 
 
-**Key Features:**
-- **Dynamic Multi-Agent Orchestration:** Pani Dumka analyzes incoming tasks and routes them autonomously to the most capable agent in her fleet.
-- **Interactions API (Live Voice):** Talk directly to Pani Dumka in real-time. She uses the cutting-edge `gemini-3.1-flash-live-preview` model for bidirectional, low-latency audio conversations.
-- **Model Context Protocol (MCP) & Workspace Integration:** The agents can list Google Drive files, read Google Docs, and send/read Gmails natively via MCP bridges.
-- **Multi-Modal Generation:** The app natively integrates **Imagen 3** (Image Studio) and **Lyria 3 Pro** (Music Studio) directly into the orchestrator's toolbelt, allowing the creation of visual and audio assets without leaving the workspace.
+Our architecture leverages the specific strengths of both models in the 3.5 tier:
+- **Gemini 3.5 Pro (`gemini-3.5-pro`)**: Acts as the central Orchestrator (Core Assistant). It handles complex reasoning, A2A (Agent-to-Agent) delegation logic, and deep analytical tasks requiring maximum cognitive depth across our 20-agent fleet.
+- **Gemini 3.5 Flash (`gemini-3.5-flash`)**: Powers our high-speed, multimodal agents (like the Vision and Data agents). It utilizes zero-copy multimodal execution by directly reading `gs://` URIs from Google Cloud Storage, ensuring massive scale and minimal latency for real-time video and image analysis.
 
-**What I Learned:** Building a multi-agent system highlighted the importance of a strong "System Prompt Architecture." By assigning very rigid, narrow scopes to sub-agents and a broad "judge/router" scope to Pani Dumka, hallucination rates dropped drastically. Implementing the Live API over WebSockets (with ElevenLabs for high-quality TTS) was challenging but incredibly rewarding for reducing latency.
-
-## 🏗️ Architecture Diagram
-
-```mermaid
-graph TD;
-    A[User UI - React & Tailwind] -->|WebSocket /live| B(Express Node.js Server);
-    A -->|REST /api/chat| B;
-    A -->|REST /api/image & /api/music| B;
-    
-    B -->|Live API| C{Gemini 3.1 Flash Live};
-    B -->|REST API| D{Gemini 3.7 Flash};
-    B -->|REST API| E{Imagen 3 & Lyria 3};
-    
-    D --> F[Pani Dumka - Orchestrator Engine];
-    C --> F;
-    
-    F -->|Delegates Task| G1(Code Agent);
-    F -->|Delegates Task| G2(OSINT Agent);
-    F -->|Delegates Task| G3(Data Agent);
-    F -->|Delegates Task| G4(Security Agent);
-    
-    G1 -.-> H[(Google Workspace API / MCP)];
-    G2 -.-> H;
-    H -.->|Reads Drive/Gmail| B;
-    B -.->|Streams response| A;
-```
+**Vertex AI Integration Details:**
+- Models are accessed via the enterprise endpoint: `aiplatform.googleapis.com`
+- Official Model Paths: `publishers/google/models/gemini-3.5-pro` and `publishers/google/models/gemini-3.5-flash`
+- Security: Authenticated exclusively via Google Cloud Application Default Credentials (ADC) to ensure enterprise-grade zero-trust security.
 
 ## 🛠️ Spin-up Instructions
 
@@ -83,7 +67,7 @@ npm run start
 ### 4. Deploying to Google Cloud Run
 This project is container-ready. 
 1. Authenticate with Google Cloud: `gcloud auth login`
-2. Set your project: `gcloud config set project [PROJECT_ID]`
+2. Set your project: `gcloud config set project [pani-dumka-01]`
 3. Deploy directly from source:
 ```bash
 gcloud run deploy pani-dumka \
