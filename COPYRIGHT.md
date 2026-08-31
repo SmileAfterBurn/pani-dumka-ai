@@ -1,6 +1,6 @@
 # Захист авторських прав (Copyright Protection)
 
-© 2024-2026 Пані Думка | AI Orchestrator. Всі права захищено.
+© 2026 Пані Думка | AI Orchestrator. Всі права захищено.
 Автор та Ко-фаундер: Ілля (illia.smileafterburn@gmail.com)
 
 ## 1. Інтелектуальна власність
