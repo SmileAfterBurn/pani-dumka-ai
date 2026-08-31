@@ -12,6 +12,7 @@
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "node --import tsx --test src/utils/cryptoCore.test.ts src/utils/encodingCore.test.ts",
     "docker:build": "docker build -t pani-dumka .",
     "docker:run": "docker run -p 3000:3000 --env-file .env pani-dumka"
   },

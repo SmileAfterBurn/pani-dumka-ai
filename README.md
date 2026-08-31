@@ -114,6 +114,20 @@ gcloud run deploy pani-dumka \
   --set-env-vars GEMINI_API_KEY=your_key
 ```
 
+## 🧪 Reproducible Testing
+
+Pani Dumka includes a suite of unit tests verifying the cryptographic layer (AES-GCM/ECDH encryption for agent-to-agent secure channels) and core data encoding protocols.
+
+To run the tests locally:
+```bash
+# Run unit tests using Node's native test runner and TSX
+npm run test
+```
+
+Expected output:
+*   `cryptoCore.test.ts`: Verifies AES-GCM and ECDH key exchange for secure A2A communication.
+*   `encodingCore.test.ts`: Validates data structures and internationalization encoding pipelines.
+
 ## 🎥 Demo Video Overview
 Our 4-minute demo covers:
 1. **The Problem:** The inefficiency of using single-threaded chat models for complex engineering/OSINT tasks.
