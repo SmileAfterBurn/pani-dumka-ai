@@ -1,0 +1,58 @@
+# Декларативне забезпечення ресурсами Google Cloud для «Пані Думка»
+# All Things Agentic Hackathon — Production Infrastructure Spec
+
+environments:
+  dev:
+    project: pani-dumka-01
+    region: us-central1
+    variables:
+      dataset_location: us-central1
+      telemetry_dataset: pani_dumka_telemetry_dev
+      analytics_dataset: pani_dumka_analytics_dev
+      a2a_logs_dataset: pani_dumka_a2a_logs_dev
+
+  prod:
+    project: pani-dumka-01
+    region: us-central1
+    variables:
+      dataset_location: us-central1
+      telemetry_dataset: pani_dumka_telemetry_prod
+      analytics_dataset: pani_dumka_analytics_prod
+      a2a_logs_dataset: pani_dumka_a2a_logs_prod
+
+resources:
+  # 1. Набір даних телеметрії та спостережливості агентів
+  - name: pani_dumka_telemetry
+    type: bigquery.dataset
+    definition:
+      datasetId: "{{ telemetry_dataset }}"
+      location: "{{ dataset_location }}"
+      description: "Телеметрія роботи 20 агентів екосистеми Пані Думка (ADK Observability)"
+      labels:
+        datacloud: "antigravity"
+        app: "pani-dumka"
+        environment: "production"
+
+  # 2. Набір даних аналітики OSINT, ринків та профілювання
+  - name: pani_dumka_analytics
+    type: bigquery.dataset
+    definition:
+      datasetId: "{{ analytics_dataset }}"
+      location: "{{ dataset_location }}"
+      description: "Аналітичні сховища OSINT, профілів та фінансових прогнозів (MathCore)"
+      labels:
+        datacloud: "antigravity"
+        app: "pani-dumka"
+        module: "analytics"
+
+  # 3. Набір даних протоколу A2A (Agent-to-Agent JSON-RPC 2.0 Logs)
+  - name: pani_dumka_a2a_logs
+    type: bigquery.dataset
+    definition:
+      datasetId: "{{ a2a_logs_dataset }}"
+      location: "{{ dataset_location }}"
+      description: "Логи та трасування міжагентної взаємодії A2A Protocol"
+      labels:
+        datacloud: "antigravity"
+        app: "pani-dumka"
+        protocol: "a2a-openclaw"

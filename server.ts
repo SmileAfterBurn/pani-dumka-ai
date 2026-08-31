@@ -8,6 +8,12 @@ import { createServer } from "http";
 import { listMcpTools, callMcpTool } from "./src/services/mcp";
 import { listEmails, readEmail, sendEmail } from "./src/services/gmail";
 import { mcpSchemaToGeminiSchema } from "./mcp_mapper";
+import { createZodchyiPlan, exportOrtografToMarkdown } from "./src/services/zodchyi";
+import { runQualityGates } from "./src/services/qualityGates";
+import { getPaperworkLogs, exportPaperworkToMarkdown } from "./src/services/paperwork";
+import { readAgentsRegistry, readAgentSpecification, listAgentFiles } from "./src/services/agentsLoader";
+import { verifyZeroLayerSecret } from "./src/services/zeroLayer";
+import { routeUserRequest } from "./src/services/hybridRouter";
 
 
 
@@ -72,7 +78,20 @@ async function startServer() {
   });
 
   const server = createServer(app);
+  
+  server.on("error", (err: any) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[Бекенд] Помилка: Порт ${PORT} вже зайнятий іншим процесом.`);
+    } else {
+      console.error("[Бекенд] Серверна помилка:", err);
+    }
+  });
+
   const wss = new WebSocketServer({ server, path: '/live' });
+
+  wss.on("error", (err: any) => {
+    console.error("[Бекенд WebSocket] Помилка сокета:", err);
+  });
 
   wss.on("connection", async (clientWs, req) => {
     
@@ -80,6 +99,8 @@ async function startServer() {
     const url = new URL(req.url || "", `http://${req.headers.host}`);
     const token = url.searchParams.get("token");
     const reqVoiceId = url.searchParams.get("voiceId");
+    const reqLang = url.searchParams.get("lang") || "uk";
+    const ttsLangCode = reqLang === "en-US" ? "en" : "uk";
     
     // Map to keep track of tool names for MCP
     const mcpToolMap = new Map<string, string>();
@@ -207,6 +228,40 @@ async function startServer() {
             required: ["documentId", "text"]
           }
         },
+        {
+          name: "zodchyi_plan_task",
+          description: "Створити План реалізації та Ортограф завдань (Task DAG) у режимі «Зодчий» для складного завдання.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              goal: { type: Type.STRING, description: "Головна мета або мета розробки/аналізу." }
+            },
+            required: ["goal"]
+          }
+        },
+        {
+          name: "zodchyi_verify_quality_gate",
+          description: "Провести верифікацію результату через Гейти Якості (Security Entropy, QA Fuzzing, Code Architecture, Spec Requirement).",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              content: { type: Type.STRING, description: "Вміст для автономної перевірки." },
+              agentType: { type: Type.STRING, description: "Тип агента (наприклад, code, qa, security, data)." }
+            },
+            required: ["content"]
+          }
+        },
+        {
+          name: "zodchyi_paperwork_log",
+          description: "Отримати аудит-журнал та звіт Paperwork для сесій виконання.",
+          parameters: {
+            type: Type.OBJECT,
+            properties: {
+              action: { type: Type.STRING, description: "Дія: 'export' або 'list'." }
+            },
+            required: ["action"]
+          }
+        },
         ...mcpFunctionDeclarations
       ]
     }];
@@ -225,7 +280,7 @@ async function startServer() {
         }
         const voiceId = reqVoiceId || process.env.ELEVENLABS_VOICE_ID || "XsDwVNgam5laFw4WF7S6";
         
-        const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_flash_v2_5&output_format=pcm_24000&language_code=uk&apply_text_normalization=on&optimize_streaming_latency=0`;
+        const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_flash_v2_5&output_format=pcm_24000&language_code=${ttsLangCode}&apply_text_normalization=on&optimize_streaming_latency=0`;
         
         elevenLabsWs = new WebSocket(wsUrl, {
           headers: {
@@ -536,6 +591,44 @@ async function startServer() {
                       });
                     });
                   }
+                } else if (call.name === "zodchyi_plan_task") {
+                  createZodchyiPlan(call.args.goal as string)
+                    .then((ortograf) => {
+                      const markdown = exportOrtografToMarkdown(ortograf);
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { result: JSON.stringify(ortograf), markdown } }]
+                      });
+                    })
+                    .catch((e: any) => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                } else if (call.name === "zodchyi_verify_quality_gate") {
+                  runQualityGates(call.args.content as string, call.args.agentType as string)
+                    .then((gateResults) => {
+                      const allPassed = gateResults.every(g => g.passed);
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { result: JSON.stringify(gateResults), allPassed } }]
+                      });
+                    })
+                    .catch((e: any) => {
+                      session.sendToolResponse({
+                        functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                      });
+                    });
+                } else if (call.name === "zodchyi_paperwork_log") {
+                  try {
+                    const logs = getPaperworkLogs();
+                    const result = logs.map(l => exportPaperworkToMarkdown(l)).join("\n\n---\n\n");
+                    session.sendToolResponse({
+                      functionResponses: [{ id: call.id, name: call.name, response: { result: result || "Немає збережених сесій у Paperwork." } }]
+                    });
+                  } catch (e: any) {
+                    session.sendToolResponse({
+                      functionResponses: [{ id: call.id, name: call.name, response: { error: e.message } }]
+                    });
+                  }
                 } else if (call.name.startsWith("mcp_")) {
                   const originalName = mcpToolMap.get(call.name);
                   if (originalName) {
@@ -842,19 +935,100 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  // API маршрути рушія «Зодчий»
+  app.post("/api/zodchyi/plan", async (req, res) => {
+    try {
+      const { goal } = req.body;
+      if (!goal) return res.status(400).json({ error: "Goal is required" });
+      const ortograf = await createZodchyiPlan(goal);
+      const markdown = exportOrtografToMarkdown(ortograf);
+      res.json({ ortograf, markdown });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/zodchyi/gates", async (req, res) => {
+    try {
+      const { content, agentType } = req.body;
+      if (!content) return res.status(400).json({ error: "Content is required" });
+      const gateResults = await runQualityGates(content, agentType || "general");
+      const allPassed = gateResults.every(g => g.passed);
+      res.json({ gateResults, allPassed });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/zodchyi/paperwork", (req, res) => {
+    try {
+      const logs = getPaperworkLogs();
+      res.json({ logs });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API маршрути диференційованих агентів
+  app.get("/api/agents/registry", (req, res) => {
+    try {
+      const registryMarkdown = readAgentsRegistry();
+      const files = listAgentFiles();
+      res.json({ registryMarkdown, files });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/agents/:key", (req, res) => {
+    try {
+      const spec = readAgentSpecification(req.params.key);
+      if (!spec) return res.status(404).json({ error: `Специфікацію агента ${req.params.key} не знайдено` });
+      res.json({ agentKey: req.params.key, spec });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Zero-Layer Web3 перевірка секретів
+  app.post("/api/security/zero-layer/verify", async (req, res) => {
+    try {
+      const { providedWord, contractAddress } = req.body;
+      const result = await verifyZeroLayerSecret(providedWord, contractAddress);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Низьколатентний гібридний маршрутизатор
+  app.post("/api/router/route", (req, res) => {
+    try {
+      const { text, hasMedia, explicitSelectedAgentKey } = req.body;
+      const decision = routeUserRequest(text || "", !!hasMedia, explicitSelectedAgentKey);
+      res.json(decision);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Static & Vite middleware serving logic
+  const distPath = path.join(process.cwd(), 'dist');
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (isProd) {
+    console.log("[Бекенд] Виробничий режим: роздача оптимізованої збірки з dist/");
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    console.log("[Бекенд] Режим розробки: запуск Vite middleware");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   server.listen(PORT, "0.0.0.0", () => {

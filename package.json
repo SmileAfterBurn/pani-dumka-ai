@@ -1,7 +1,9 @@
 {
-  "name": "react-example",
+  "name": "pani-dumka",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Пані Думка — Елітна мультиагентна екосистема на базі Gemini 3.5 та Vertex AI для All Things Agentic Hackathon",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -9,7 +11,9 @@
     "start": "node dist/server.cjs",
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "docker:build": "docker build -t pani-dumka .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env pani-dumka"
   },
   "dependencies": {
     "@elevenlabs/client": "^1.23.0",

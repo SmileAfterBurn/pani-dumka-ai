@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { cachedAccessToken } from '../services/firebase';
 
-export function useLiveConversation(voiceId?: string) {
+export function useLiveConversation(voiceId?: string, language?: string) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);

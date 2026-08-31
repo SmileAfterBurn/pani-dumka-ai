@@ -62,7 +62,7 @@ export interface McpPluginManifest {
   author: string;
   description: string;
   icon: string;
-  category: "core" | "workspace" | "diagnostics" | "intelligence" | "custom";
+  category: "core" | "workspace" | "diagnostics" | "intelligence" | "custom" | "system";
   tools: McpToolDefinition[];
   resources?: McpResourceDefinition[];
   lifecycle?: McpPluginLifecycle;

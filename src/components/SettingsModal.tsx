@@ -4,6 +4,8 @@ import { X, UserCheck, Volume2, Shield, Sparkles, RefreshCw, Cpu } from "lucide-
 import { UkrainianOrnament } from "./UkrainianOrnament";
 import { AGENT_REGISTRY } from "../services/gemini";
 
+import { SupportedLanguage, DICTIONARY } from "../utils/i18n";
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +15,8 @@ interface SettingsModalProps {
   onVoiceSpeedChange: (speed: number) => void;
   voiceId: string;
   onVoiceIdChange: (id: string) => void;
+  language: SupportedLanguage;
+  onLanguageChange: (lang: SupportedLanguage) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -24,8 +28,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onVoiceSpeedChange,
   voiceId,
   onVoiceIdChange,
+  language,
+  onLanguageChange,
 }) => {
   if (!isOpen) return null;
+  const t = DICTIONARY[language];
 
   return (
     <AnimatePresence>
@@ -43,8 +50,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Cpu className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-serif font-bold text-lg text-slate-900">Налаштування Пані Думка Аі</h3>
-                <p className="text-xs text-slate-500 font-mono">Конфігурація когнітивного простору</p>
+                <h3 className="font-serif font-bold text-lg text-slate-900">
+                  {language === "uk" ? "Налаштування Пані Думка" : "Pani Dumka Settings"}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {language === "uk" ? "Конфігурація когнітивного простору" : "Cognitive Space Configuration"}
+                </p>
               </div>
             </div>
             <button
@@ -57,10 +68,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Body */}
           <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            {/* Language Selection */}
+            <div className="space-y-3">
+              <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold block">
+                {t.languageSelect}
+              </span>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => onLanguageChange("uk")}
+                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    language === "uk"
+                      ? "bg-red-50/80 border-red-400 ring-2 ring-red-400/40 shadow-xs"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🇺🇦</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-900">Українська</span>
+                      <span className="text-[10px] font-mono text-red-700 font-semibold">{t.ukrainian}</span>
+                    </div>
+                  </div>
+                  {language === "uk" && (
+                    <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onLanguageChange("en-US")}
+                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    language === "en-US"
+                      ? "bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/40 shadow-xs"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🌐</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-900">English</span>
+                      <span className="text-[10px] font-mono text-indigo-700 font-semibold">{t.englishUS}</span>
+                    </div>
+                  </div>
+                  {language === "en-US" && (
+                    <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                  )}
+                </button>
+              </div>
+            </div>
+
             {/* Cognitive Mode */}
             <div className="space-y-3">
               <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold block">
-                Режим Когнітивного Діалогу
+                {language === "uk" ? "Режим Когнітивного Діалогу" : "Cognitive Dialogue Mode"}
               </span>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -75,14 +136,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
                       <UserCheck className="w-4 h-4 text-red-600" />
-                      Творець (Ілля)
+                      {t.creatorMode}
                     </span>
                     {isCreator && (
                       <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
                     )}
                   </div>
                   <p className="text-[11px] text-slate-600 leading-tight">
-                    Повна синхронізація, {AGENT_REGISTRY.length} агентів, контекст SmileAfterBurn та Мапи Турботи.
+                    {t.creatorSubtitle}
                   </p>
                 </button>
 
@@ -98,14 +159,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
                       <Shield className="w-4 h-4 text-blue-600" />
-                      Загальний Гід
+                      {t.generalGuideMode}
                     </span>
                     {!isCreator && (
                       <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                     )}
                   </div>
                   <p className="text-[11px] text-slate-600 leading-tight">
-                    Шляхетне універсальне консультування на «Ви», навігація по допомозі.
+                    {t.generalGuideSubtitle}
                   </p>
                 </button>
               </div>
@@ -116,7 +177,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="flex justify-between items-center">
                 <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold flex items-center gap-1.5">
                   <Volume2 className="w-4 h-4 text-slate-600" />
-                  Швидкість синтезу голосу
+                  {t.voiceSpeedTitle}
                 </span>
                 <span className="text-xs font-mono font-bold text-red-600">{voiceSpeed}x</span>
               </div>
@@ -130,9 +191,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="w-full accent-red-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                <span>0.8x (Виважений)</span>
-                <span>1.0x (Природний)</span>
-                <span>1.3x (Динамічний)</span>
+                <span>0.8x ({language === "uk" ? "Виважений" : "Measured"})</span>
+                <span>1.0x ({language === "uk" ? "Природний" : "Natural"})</span>
+                <span>1.3x ({language === "uk" ? "Динамічний" : "Dynamic"})</span>
               </div>
             </div>
 
@@ -141,7 +202,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-3 pt-4 border-t border-slate-100">
               <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold flex items-center gap-1.5">
                 <Volume2 className="w-4 h-4 text-slate-400" />
-                Голос AI (ElevenLabs)
+                {t.voiceIdTitle}
               </span>
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                 <select
@@ -149,18 +210,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onChange={(e) => onVoiceIdChange(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all cursor-pointer"
                 >
-                  <option value="XsDwVNgam5laFw4WF7S6">Pani Dumka (Дарина) - Основний</option>
-                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Рейчел)</option>
-                  <option value="29vD33N1CtxCmqQRPOZB">Drew (Дрю)</option>
-                  <option value="2EiwWnXFnvU5JabPnv8n">Clyde (Клайд)</option>
-                  <option value="5Q0t7uMcjvnagumLfvZi">Paul (Пол)</option>
-                  <option value="AZnzlk1XvdvUeBnXmlld">Domi (Домі)</option>
-                  <option value="CYw3kZ02Hs0563khs1Fj">Dave (Дейв)</option>
-                  <option value="EXAVITQu4vr4xnSDxMaL">Bella (Белла)</option>
-                  <option value="ThT5KcBeYPX3keUQqHPh">Dorothy (Дороті)</option>
+                  <option value="XsDwVNgam5laFw4WF7S6">Pani Dumka (Дарина) - Primary</option>
+                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel</option>
+                  <option value="29vD33N1CtxCmqQRPOZB">Drew</option>
+                  <option value="2EiwWnXFnvU5JabPnv8n">Clyde</option>
+                  <option value="5Q0t7uMcjvnagumLfvZi">Paul</option>
+                  <option value="AZnzlk1XvdvUeBnXmlld">Domi</option>
+                  <option value="CYw3kZ02Hs0563khs1Fj">Dave</option>
+                  <option value="EXAVITQu4vr4xnSDxMaL">Bella</option>
+                  <option value="ThT5KcBeYPX3keUQqHPh">Dorothy</option>
                 </select>
                 <p className="text-[10px] text-slate-500 mt-2">
-                  Змінивши голос, вам може знадобитись перезапустити голосову сесію.
+                  {language === "uk" ? "Змінивши голос, вам може знадобитись перезапустити голосову сесію." : "Changing voice may require restarting your live audio session."}
                 </p>
               </div>
             </div>
@@ -168,16 +229,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Model details */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-slate-600 font-medium">Ядро Оркестратора</span>
+                <span className="text-xs font-mono text-slate-600 font-medium">{t.orchestratorCore}</span>
                 <span className="text-xs font-mono font-bold text-red-600">Gemini Enterprise Agent Platform (3.5 Pro)</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-slate-600 font-medium">Екосистема агентів</span>
-                <span className="text-xs font-mono font-bold text-slate-800">{AGENT_REGISTRY.length} суб-агентів</span>
+                <span className="text-xs font-mono text-slate-600 font-medium">{language === "uk" ? "Екосистема агентів" : "Agent Ecosystem"}</span>
+                <span className="text-xs font-mono font-bold text-slate-800">{AGENT_REGISTRY.length} {t.activeAgentsCount}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-slate-600 font-medium">База осередків Турботи</span>
-                <span className="text-xs font-mono font-bold text-emerald-600">6200+ перевірених</span>
+                <span className="text-xs font-mono text-slate-600 font-medium">{language === "uk" ? "База осередків Турботи" : "Care Map Database"}</span>
+                <span className="text-xs font-mono font-bold text-emerald-600">6200+ {language === "uk" ? "перевірених" : "verified"}</span>
               </div>
             </div>
 
@@ -190,7 +251,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={onClose}
               className="px-5 py-2 rounded-full bg-slate-900 text-white hover:bg-slate-800 font-medium text-xs transition-colors cursor-pointer"
             >
-              Зберегти та закрити
+              {t.saveAndClose}
             </button>
           </div>
         </motion.div>

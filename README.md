@@ -1,3 +1,20 @@
+# 🇺🇦 Пані Думка (Pani Dumka)
+### *Next-Generation Autonomous Multi-Agent Orchestrator for Enterprise*
+
+[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Vertex_AI-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/vertex-ai)
+[![Gemini 3.5](https://img.shields.io/badge/Gemini-3.5_Pro_%26_Flash-8E75B2?logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
+[![Cloud Run](https://img.shields.io/badge/Cloud_Run-Container_Ready-248542?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE.md)
+
+**Track:** *The Fortified Enterprise Fleet* | **All Things Agentic Hackathon**
+
+---
+
+## 🌟 Executive Summary
+**Пані Думка (Pani Dumka)** is an advanced, production-ready multi-agent orchestrator managing an elite fleet of **20 specialized autonomous AI agents**. Built natively around **Gemini 3.5 Pro & Flash** on **Google Cloud Vertex AI**, it introduces a formal **A2A (Agent-to-Agent) JSON-RPC 2.0 protocol**, deterministic mathematical validation (**MathCore**), real-time AST cybersecurity auditing, multimodal zero-copy Cloud Storage analysis, and Google Workspace tool integrations.
+
+---
+
 ## 🧩 Built on Google Agent Development Kit (ADK) Principles
 
 To ensure complete compatibility with the Google Cloud ecosystem, the internal agents within Pani Dumka are architected following the **Google Agent Development Kit (ADK)** patterns:

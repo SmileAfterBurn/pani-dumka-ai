@@ -481,11 +481,13 @@ export class DeterministicRandom {
   private state: bigint;
   private inc: bigint;
 
-  constructor(seed = 42n, sequence = 54n) {
+  constructor(seed: number | bigint = 42n, sequence: number | bigint = 54n) {
+    const s = typeof seed === "bigint" ? seed : BigInt(seed);
+    const seq = typeof sequence === "bigint" ? sequence : BigInt(sequence);
     this.state = 0n;
-    this.inc = (sequence << 1n) | 1n;
+    this.inc = (seq << 1n) | 1n;
     this.nextUint32();
-    this.state = this.state + seed;
+    this.state = this.state + s;
     this.nextUint32();
   }
 
@@ -505,6 +507,13 @@ export class DeterministicRandom {
    */
   nextFloat(): number {
     return this.nextUint32() / 4294967296;
+  }
+
+  /**
+   * Псевдонім для nextFloat()
+   */
+  next(): number {
+    return this.nextFloat();
   }
 
   /**

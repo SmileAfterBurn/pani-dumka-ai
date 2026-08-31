@@ -78,11 +78,13 @@ import { HelpModal } from "./components/HelpModal";
 import { DeepResearchModal } from "./components/DeepResearchModal";
 import { ImageStudioModal } from "./components/ImageStudioModal";
 import { WorkspaceModal } from "./components/WorkspaceModal";
+import { SupportedLanguage, DICTIONARY } from "./utils/i18n";
 import { GoogleMapsModal } from "./components/GoogleMapsModal";
 import { CollaborativeCanvas } from "./components/CollaborativeCanvas";
 import { PricingModal } from "./components/PricingModal";
 import { A2AConsoleModal } from "./components/A2AConsoleModal";
 import { SessionTransportClient } from "./services/sessionTransport";
+import { LiveAvatar } from "./components/LiveAvatar";
 import avatarImg from "./assets/images/pani_dumka_avatar.png";
 
 // Icon mapping helper for agent badges
@@ -163,6 +165,14 @@ export default function App() {
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [voiceId, setVoiceId] = useState("XsDwVNgam5laFw4WF7S6"); // Default ElevenLabs voice
   const [creatorForce, setCreatorForce] = useState<boolean | null>(null);
+  const [avatarEmotion, setAvatarEmotion] = useState<'neutral' | 'thoughtful' | 'happy' | 'empathetic' | 'excited'>('neutral');
+  const [language, setLanguage] = useState<SupportedLanguage>(() => (localStorage.getItem('language') as SupportedLanguage) || "uk");
+
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
+
+  const t = DICTIONARY[language];
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -390,7 +400,6 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
     setMessages(session.messages);
     setActiveSessionId(session.id);
     setView("chat");
-    setIsChatHistoryOpen(false);
     setIsMobileSidebarOpen(false);
   };
 
@@ -432,7 +441,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <SquarePen className="w-4 h-4 text-slate-500 group-hover:text-red-600 transition-colors" />
-              <span>Новий діалог</span>
+              <span>{t.newChat}</span>
             </button>
 
             <button
@@ -443,7 +452,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <ImageIcon className="w-4 h-4 text-slate-500 group-hover:text-sky-600 transition-colors" />
-              <span>Зображення</span>
+              <span>{t.imageStudio}</span>
             </button>
 
             {/* Deep Research (Highlighted pill as in reference design) */}
@@ -456,7 +465,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
             >
               <Compass className="w-4 h-4 text-red-600 group-hover:rotate-45 transition-transform" />
               <div className="flex items-center justify-between flex-1">
-                <span>Глибоке дослідження</span>
+                <span>{t.deepResearch}</span>
                 <Sparkles className="w-3 h-3 text-red-500" />
               </div>
             </button>
@@ -469,7 +478,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-3 group cursor-pointer"
             >
               <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors" />
-              <span>Google Workspace</span>
+              <span>{t.workspace}</span>
             </button>
 
             {/* A2A Protocol & MCP Shared SDK */}
@@ -482,7 +491,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
             >
               <Network className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform" />
               <div className="flex items-center justify-between flex-1">
-                <span>A2A & MCP Консоль</span>
+                <span>{t.a2aConsole}</span>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200">OpenClaw</span>
               </div>
             </button>
@@ -491,7 +500,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
           {/* Memories / History (Спогади) */}
           <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
             <span className="px-3.5 text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold block">
-              Спогади:
+              {t.memories}
             </span>
             <div className="space-y-0.5">
               {DEFAULT_MEMORIES.map((mem) => (
@@ -522,7 +531,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
             >
               <Music className="w-4 h-4 text-slate-500" />
-              <span>Синтез музики (Lyria)</span>
+              <span>{t.musicStudio}</span>
             </button>
 
             <button
@@ -533,7 +542,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-500" />
-              <span>Налаштування</span>
+              <span>{t.settings}</span>
             </button>
 
             <button
@@ -544,7 +553,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
               className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors flex items-center gap-2.5 cursor-pointer"
             >
               <HelpCircle className="w-4 h-4 text-slate-500" />
-              <span>Довідка</span>
+              <span>{t.help}</span>
             </button>
 
             <button
@@ -557,7 +566,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
             >
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Оновити до Преміум</span>
+                <span>{t.upgradeToPremium}</span>
               </div>
               <ChevronRight className="w-3 h-3 text-amber-400 group-hover:translate-x-0.5 transition-transform" />
             </button>
@@ -795,20 +804,29 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                 {/* Ukrainian Traditional Cross-Stitch Embroidery Ribbon */}
                 <UkrainianOrnament variant="divider" className="max-w-md my-0 opacity-80" />
 
+                {/* Central Interactive Live Avatar (Video Lip-Sync & Portrait Fusion) */}
+                <LiveAvatar 
+                  isSpeaking={isLoading}
+                  isListening={isSTTListening}
+                  emotion={isLoading ? "thoughtful" : isSTTListening ? "empathetic" : "happy"}
+                  size="lg"
+                  onClick={toggleSTT}
+                />
+
                 {/* Ethno-Digital Intellectual Persona Guidance Headings */}
                 <div className="text-center space-y-2 max-w-xl mx-auto px-4">
                   <h1 className="text-slate-950 dark:text-slate-50 font-serif text-2xl sm:text-3xl font-bold tracking-tight">
-                    Шляхетний Розум та Жива Традиція
+                    {t.heroTitle}
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
-                    Ласкаво просимо до простору стратегічної думки, емпатії та соціальної дії. Оберіть зручний формат спілкування:
+                    {t.heroSubtitle}
                   </p>
                 </div>
 
                 {/* Lower Status Greeting & Wide Floating Omnibar Input */}
                 <div className="w-full max-w-2xl space-y-3 px-2 pt-2">
                   <div className="text-center font-sans font-medium text-slate-800 dark:text-slate-200 text-base sm:text-lg">
-                    Завжди до ваших послуг.
+                    {t.alwaysAtYourService}
                   </div>
 
                   {/* Wide Floating Omnibar Pill */}
@@ -842,7 +860,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                               className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700 dark:hover:text-red-400 flex items-center gap-2.5"
                             >
                               <Compass className="w-4 h-4 text-red-600" />
-                              <span>Глибоке дослідження</span>
+                              <span>{t.deepResearch}</span>
                             </button>
                             <button
                               onClick={() => {
@@ -852,7 +870,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                               className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-700 dark:hover:text-sky-400 flex items-center gap-2.5"
                             >
                               <ImageIcon className="w-4 h-4 text-sky-600" />
-                              <span>Генератор образів</span>
+                              <span>{t.imageStudio}</span>
                             </button>
                             <button
                               onClick={() => {
@@ -862,7 +880,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                               className="w-full p-2 rounded-xl text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2.5"
                             >
                               <Globe className="w-4 h-4 text-blue-600" />
-                              <span>Google Workspace</span>
+                              <span>{t.workspace}</span>
                             </button>
                             <button
                               onClick={() => {
@@ -872,7 +890,7 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                               className="w-full p-2 rounded-xl text-left text-xs font-semibold text-indigo-800 dark:text-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-400 flex items-center gap-2.5"
                             >
                               <Network className="w-4 h-4 text-indigo-600" />
-                              <span>A2A & MCP SDK Консоль</span>
+                              <span>{t.a2aConsole}</span>
                             </button>
                           </motion.div>
                         )}
@@ -887,10 +905,10 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                       onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                       placeholder={
                         isSTTListening
-                          ? "Слухаю ваше слово..."
+                          ? (language === "en-US" ? "Listening to your voice..." : "Слухаю ваше слово...")
                           : selectedAgent
-                            ? `Запит до ${selectedAgent.name}...`
-                            : "Запитайте Пані Думку про будь-що..."
+                            ? (language === "en-US" ? `Query to ${selectedAgent.name}...` : `Запит до ${selectedAgent.name}...`)
+                            : t.askPlaceholder
                       }
                       className="flex-1 bg-transparent px-4 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                     />
@@ -921,28 +939,28 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                   <QuickActionCard 
                     delayIndex={0}
                     icon={<MapIcon className="w-4 h-4 text-red-600" />} 
-                    title="Мапа Турботи" 
-                    subtitle="6200+ осередків допомоги"
+                    title={t.cardCareMapTitle} 
+                    subtitle={t.cardCareMapDesc}
                     onClick={() => {
-                      handleSendMessage("Розкажи детально про поточний стан і ключові осередки Соціальної Мапи Турботи");
+                      handleSendMessage(language === "en-US" ? "Tell me in detail about the current state of the Care Map" : "Розкажи детально про поточний стан і ключові осередки Соціальної Мапи Турботи");
                     }}
                   />
                   <QuickActionCard 
                     delayIndex={1}
                     icon={<ShieldAlert className="w-4 h-4 text-blue-600" />} 
-                    title="Аудит Луцика" 
-                    subtitle="Security & OSINT захист"
+                    title={t.cardSecurityTitle} 
+                    subtitle={t.cardSecurityDesc}
                     onClick={() => {
                       const sec = AGENT_REGISTRY.find(a => a.id === "security");
                       if (sec) setSelectedAgent(sec);
-                      handleSendMessage("@security Проведи аудит цифрової безпеки та захисту даних");
+                      handleSendMessage(language === "en-US" ? "@security Conduct a full cybersecurity and data protection audit" : "@security Проведи аудит цифрової безпеки та захисту даних");
                     }}
                   />
                   <QuickActionCard 
                     delayIndex={2}
                     icon={<Brain className="w-4 h-4 text-amber-600" />} 
-                    title="Літопис думок" 
-                    subtitle="Стратегічні хроніки"
+                    title={t.cardLytopisTitle} 
+                    subtitle={t.cardLytopisDesc}
                     onClick={() => {
                       if (user) {
                         setView("journal");
@@ -971,15 +989,12 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                 {/* Chat Top Banner */}
                 <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex justify-between items-center bg-white/95 dark:bg-slate-900/95">
                   <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-red-500/30">
-                      <img 
-                        src={avatarImg} 
-                        className="w-full h-full object-cover" 
-                        alt="Пані Думка" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
-                    </div>
+                    <LiveAvatar 
+                      isSpeaking={isLoading}
+                      isListening={isSTTListening}
+                      size="sm"
+                      showBadge={false}
+                    />
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-serif font-bold text-sm text-slate-900 dark:text-slate-100">Пані Думка</span>
@@ -1017,8 +1032,12 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
                       <UkrainianOrnament variant="rosette" className="w-10 h-10" />
                       <p className="font-serif italic text-slate-600 dark:text-slate-300 max-w-sm">
                         {isCreator 
-                          ? `Я готова до щирої та глибокої розмови, Ілля. Можемо задіяти будь-якого з ${AGENT_REGISTRY.length} агентів (@code, @security, @osint, @qa, @crypto тощо). Про що поміркуємо?` 
-                          : "Вітаю вас. Я уважно вислухаю ваше запитання та допоможу знайти слушний орієнтир."}
+                          ? (language === "en-US" 
+                              ? `I am ready for a deep and sincere conversation, Illia. We can engage any of the ${AGENT_REGISTRY.length} agents (@code, @security, @osint, @qa, @crypto, etc.). What shall we analyze today?`
+                              : `Я готова до щирої та глибокої розмови, Ілля. Можемо задіяти будь-якого з ${AGENT_REGISTRY.length} агентів (@code, @security, @osint, @qa, @crypto тощо). Про що поміркуємо?`)
+                          : (language === "en-US"
+                              ? "Welcome. I will attentively hear your request and guide you with wisdom."
+                              : "Вітаю вас. Я уважно вислухаю ваше запитання та допоможу знайти слушний орієнтир.")}
                       </p>
                     </div>
                   )}
@@ -1156,6 +1175,8 @@ Reply ONLY with the exact agent tag (e.g., "@chat", "@code"), or "@chat" as fall
         voiceId={voiceId}
         onVoiceIdChange={setVoiceId}
         onVoiceSpeedChange={setVoiceSpeed}
+        language={language}
+        onLanguageChange={setLanguage}
       />
 
       {/* Help & Agents Guide Modal */}
